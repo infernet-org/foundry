@@ -61,9 +61,7 @@ serverless:
   
 # Network (Load Balancing Mode)
 ports:
-  - container_port: 8080
-    protocol: HTTP
-  - container_port: 8081
+  - container_port: 80
     protocol: HTTP
 
     
