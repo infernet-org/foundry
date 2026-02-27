@@ -39,19 +39,6 @@ jobs:
           context: models/qwen3.5-35b-a3b/
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
-            ${{ env.REGISTRY }}/qwen3.5-35b-a3b:base
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build and push RunPod image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: deploy/Dockerfile.runpod
-          build-args: |
-            BASE_IMAGE=${{ env.REGISTRY }}/qwen3.5-35b-a3b:base
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: |
             ${{ env.REGISTRY }}/qwen3.5-35b-a3b:latest
             ${{ github.ref_type == 'tag' && format('{0}/qwen3.5-35b-a3b:{1}', env.REGISTRY, github.ref_name) || '' }}
           cache-from: type=gha

@@ -25,7 +25,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Model metadata
 ENV FOUNDRY_MODEL_NAME="Qwen3.5-35B-A3B"
 ENV FOUNDRY_GGUF_REPO="unsloth/Qwen3.5-35B-A3B-GGUF"
-ENV FOUNDRY_GGUF_FILE="Qwen3.5-35B-A3B-Q4_K_M.gguf"
+ENV FOUNDRY_GGUF_FILE="Qwen3.5-35B-A3B-UD-Q4_K_XL.gguf"
 
 # Runtime defaults (can be overridden)
 ENV FOUNDRY_PROFILE="auto"

@@ -101,7 +101,6 @@ foundry/
 │       ├── Dockerfile
 │       ├── entrypoint.sh
 │       └── profiles/            # Per-GPU tuned launch configs
-├── deploy/                      # RunPod Serverless deployment
 ├── scripts/                     # Build, run, benchmark, deploy helpers
 └── docker-compose.yml           # Easy local deployment
 ```
