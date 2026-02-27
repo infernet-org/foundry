@@ -13,6 +13,7 @@
 
 services:
   qwen3.5-35b-a3b:
+    image: ghcr.io/infernet-org/foundry/qwen3.5-35b-a3b:latest
     build:
       context: models/qwen3.5-35b-a3b/
     ports:

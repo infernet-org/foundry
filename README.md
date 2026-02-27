@@ -12,6 +12,12 @@ docker run --gpus all -p 8080:8080 \
   ghcr.io/infernet-org/foundry/qwen3.5-35b-a3b:latest
 ```
 
+Or with Docker Compose:
+
+```bash
+docker compose up
+```
+
 The first run downloads the model (~20GB). Subsequent starts are instant.
 
 Then use it like any OpenAI-compatible API:
@@ -78,6 +84,46 @@ All settings can be overridden via environment variables:
 | `FOUNDRY_THREADS` | Profile default | CPU thread count |
 | `FOUNDRY_EXTRA_ARGS` | (empty) | Additional llama-server arguments (highest priority) |
 | `HF_TOKEN` | (empty) | Hugging Face token for authenticated downloads |
+
+## Multi-Agent Inference
+
+The RTX 5090 profile is configured with `--parallel 4`, enabling 4 concurrent inference slots. This makes Foundry well-suited for multi-agent workflows where several AI agents share a single GPU and model.
+
+### Why this works
+
+Qwen3.5-35B-A3B uses a 256-expert Mixture-of-Experts architecture with only 8 experts active per token. During single-stream decode, the GPU's tensor cores are largely idle -- the bottleneck is memory bandwidth, not compute. When multiple agents send concurrent requests, llama.cpp batches token generation across all active slots. Different tokens may route to different experts, and CUDA graphs (for `MUL_MAT_ID` at batch size 1-4) capture the entire batched MoE operation, significantly improving GPU utilization.
+
+### Empirically validated throughput
+
+| Active agents | Aggregate throughput | Per-agent speed | VRAM |
+|---------------|---------------------|-----------------|------|
+| 1 | 174 tok/s | 174 tok/s | 25.3 GB |
+| 2 | 234 tok/s | ~117 tok/s each | 25.7 GB |
+| 4 | 320 tok/s | ~80 tok/s each | 26.1 GB |
+
+Single-agent speed is unaffected. The 4 slots only activate when there are concurrent requests.
+
+### Compatible frameworks
+
+Any OpenAI-compatible agent framework works out of the box -- point it at `http://localhost:8080/v1`:
+
+- [OpenCode](https://opencode.ai) / [Cursor](https://cursor.com) / [Continue](https://continue.dev) -- coding agents
+- [CrewAI](https://crewai.com) / [AutoGen](https://github.com/microsoft/autogen) -- multi-agent orchestration
+- [Open WebUI](https://openwebui.com) -- chat interface with multi-user support
+
+### Scaling to 2 GPUs
+
+With 2x RTX 5090, run two independent Foundry instances (one per GPU) for 8 total concurrent slots and 348 tok/s combined throughput with zero contention between agents:
+
+```bash
+# GPU 0: agents 1-4
+docker run --gpus '"device=0"' -p 8080:8080 -v ~/.cache/foundry:/models \
+  ghcr.io/infernet-org/foundry/qwen3.5-35b-a3b:latest
+
+# GPU 1: agents 5-8
+docker run --gpus '"device=1"' -p 8081:8080 -v ~/.cache/foundry:/models \
+  ghcr.io/infernet-org/foundry/qwen3.5-35b-a3b:latest
+```
 
 ## Docker Compose
 
