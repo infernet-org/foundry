@@ -18,8 +18,10 @@ Deploy Foundry as a serverless GPU inference endpoint on RunPod.
    - Port: 8080
 
 4. **Deploy Serverless Endpoint**
+   - **Crucial**: You must create a **Load Balancing Endpoint** (not a Queue-Based Endpoint).
    - Select the template
    - Set min/max workers
+   - Ensure both 8080 and 8081 are exposed in the configuration
    - Get your endpoint URL
 
 ## Architecture

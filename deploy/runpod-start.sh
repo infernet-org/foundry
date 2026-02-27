@@ -117,6 +117,9 @@ main() {
     local threads="${FOUNDRY_THREADS:-${PROFILE_THREADS:-16}}"
     local parallel="${FOUNDRY_PARALLEL:-${PROFILE_PARALLEL:-2}}"
     
+    log "Starting RunPod health check sidecar on port 8081..."
+    python3 /opt/foundry/health_check.py &
+    
     log "Starting llama-server..."
     log "  Context: ${ctx} tokens"
     log "  Threads: ${threads}"

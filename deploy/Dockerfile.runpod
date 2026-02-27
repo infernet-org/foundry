@@ -9,6 +9,8 @@ ARG BASE_IMAGE=ghcr.io/infernet-org/foundry/qwen3.5-35b-a3b:latest
 FROM ${BASE_IMAGE}
 
 ENV FOUNDRY_PORT=8080
+ENV PORT=8080
+ENV PORT_HEALTH=8081
 ENV FOUNDRY_HOST=0.0.0.0
 ENV FOUNDRY_CTX_LENGTH=65536
 ENV FOUNDRY_THREADS=16
@@ -16,9 +18,10 @@ ENV FOUNDRY_PARALLEL=2
 ENV RUNPOD_DEBUG=false
 
 COPY runpod-start.sh /opt/foundry/start.sh
+COPY health_check.py /opt/foundry/health_check.py
 RUN chmod +x /opt/foundry/start.sh
 
 WORKDIR /app
-EXPOSE 8080
+EXPOSE 8080 8081
 
 ENTRYPOINT ["/opt/foundry/start.sh"]

@@ -58,12 +58,14 @@ serverless:
   min_workers: 0         # Scale to zero when idle
   max_workers: 10        # Maximum concurrent workers
   idle_timeout: 300      # 5 minutes idle before scale down
-  scale_up_delay: 30     # Wait before scaling up
   
-# Network
+# Network (Load Balancing Mode)
 ports:
   - container_port: 8080
     protocol: HTTP
+  - container_port: 8081
+    protocol: HTTP
+
     
 # Volume (optional - for caching models between restarts)
 # volumes:
