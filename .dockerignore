@@ -1,0 +1,11 @@
+.git
+.github
+*.md
+!README.md
+LICENSE
+.gitignore
+*.gguf
+models-cache/
+benchmarks/results/
+.env
+.env.local

@@ -1,0 +1,43 @@
+# ==============================================================================
+# Foundry: Docker Compose
+# ==============================================================================
+# Quick start:
+#   docker compose up
+#
+# With explicit profile:
+#   FOUNDRY_PROFILE=rtx4090 docker compose up
+# ==============================================================================
+
+services:
+  qwen3.5-35b-a3b:
+    build:
+      context: .
+      dockerfile: models/qwen3.5-35b-a3b/Dockerfile
+      args:
+        BASE_IMAGE: foundry-base-llama-cpp:latest
+    ports:
+      - "${FOUNDRY_PORT:-8080}:8080"
+    volumes:
+      - models-cache:/models
+    environment:
+      - FOUNDRY_PROFILE=${FOUNDRY_PROFILE:-auto}
+      - FOUNDRY_PORT=8080
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    shm_size: '2gb'
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s
+      retries: 3
+
+volumes:
+  models-cache:
+    driver: local

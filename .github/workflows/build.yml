@@ -1,0 +1,93 @@
+name: Build and Push Docker Images
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io/infernet-org/foundry
+
+jobs:
+  build-base:
+    name: Build Base Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - cuda_version: "12.8.0"
+            cuda_arch: "86;89;120"
+            tag_suffix: "cu128"
+          - cuda_version: "12.4.1"
+            cuda_arch: "86;89"
+            tag_suffix: "cu124"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push base image
+        uses: docker/build-push-action@v6
+        with:
+          context: base/llama-cpp/
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ${{ env.REGISTRY }}/base-llama-cpp:${{ matrix.tag_suffix }}
+            ${{ matrix.tag_suffix == 'cu128' && format('{0}/base-llama-cpp:latest', env.REGISTRY) || '' }}
+          build-args: |
+            CUDA_VERSION=${{ matrix.cuda_version }}
+            CUDA_ARCH=${{ matrix.cuda_arch }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-model:
+    name: Build Model Image
+    runs-on: ubuntu-latest
+    needs: build-base
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push model image
+        uses: docker/build-push-action@v6
+        with:
+          context: models/qwen3.5-35b-a3b/
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ${{ env.REGISTRY }}/qwen3.5-35b-a3b:latest
+            ${{ github.ref_type == 'tag' && format('{0}/qwen3.5-35b-a3b:{1}', env.REGISTRY, github.ref_name) || '' }}
+          build-args: |
+            BASE_IMAGE=${{ env.REGISTRY }}/base-llama-cpp:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
