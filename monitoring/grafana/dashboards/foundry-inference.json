@@ -1,0 +1,640 @@
+{
+  "uid": "foundry-inference",
+  "title": "Foundry Inference",
+  "description": "LLM inference monitoring: llama-server throughput, GPU telemetry, and host resources",
+  "tags": ["foundry", "llm", "inference", "gpu"],
+  "timezone": "browser",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "refresh": "15s",
+  "schemaVersion": 39,
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Inference",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false
+    },
+    {
+      "type": "gauge",
+      "title": "Decode Speed (tok/s)",
+      "description": "Current token generation throughput",
+      "gridPos": { "h": 6, "w": 4, "x": 0, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "llamacpp:predicted_tokens_seconds",
+          "legendFormat": "decode tok/s"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "tok/s",
+          "min": 0,
+          "max": 400,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 50 },
+              { "color": "yellow", "value": 100 },
+              { "color": "green", "value": 150 }
+            ]
+          },
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      }
+    },
+    {
+      "type": "gauge",
+      "title": "Prompt Speed (tok/s)",
+      "description": "Current prompt processing throughput",
+      "gridPos": { "h": 6, "w": 4, "x": 4, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "llamacpp:prompt_tokens_seconds",
+          "legendFormat": "prompt tok/s"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "tok/s",
+          "min": 0,
+          "max": 2000,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 200 },
+              { "color": "yellow", "value": 500 },
+              { "color": "green", "value": 800 }
+            ]
+          },
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Active Slots",
+      "description": "Inference slots currently processing requests",
+      "gridPos": { "h": 3, "w": 4, "x": 8, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "llamacpp:requests_processing",
+          "legendFormat": "active"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null },
+              { "color": "green", "value": 1 },
+              { "color": "yellow", "value": 3 },
+              { "color": "red", "value": 4 }
+            ]
+          },
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "none"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Deferred Requests",
+      "description": "Requests waiting in queue (all slots busy)",
+      "gridPos": { "h": 3, "w": 4, "x": 8, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "llamacpp:requests_deferred",
+          "legendFormat": "queued"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          },
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "none"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Token Throughput Over Time",
+      "description": "Decode and prompt processing throughput",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "llamacpp:predicted_tokens_seconds",
+          "legendFormat": "Decode tok/s"
+        },
+        {
+          "expr": "llamacpp:prompt_tokens_seconds",
+          "legendFormat": "Prompt tok/s"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "tok/s",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 15,
+            "pointSize": 5,
+            "showPoints": "auto",
+            "spanNulls": true
+          }
+        }
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Total Tokens Generated",
+      "description": "Cumulative token counts",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "llamacpp:tokens_predicted_total",
+          "legendFormat": "Generated"
+        },
+        {
+          "expr": "llamacpp:prompt_tokens_total",
+          "legendFormat": "Prompt"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10
+          }
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Slot Utilization",
+      "description": "Average busy slots per decode call and active requests over time",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "llamacpp:n_busy_slots_per_decode",
+          "legendFormat": "Avg busy slots/decode"
+        },
+        {
+          "expr": "llamacpp:requests_processing",
+          "legendFormat": "Active requests"
+        },
+        {
+          "expr": "llamacpp:requests_deferred",
+          "legendFormat": "Queued requests"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "fillOpacity": 20
+          }
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Decode Calls / sec",
+      "description": "Rate of llama_decode() calls",
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "rate(llamacpp:n_decode_total[1m])",
+          "legendFormat": "decode calls/sec"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 15
+          }
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Max Prompt Tokens",
+      "description": "Largest prompt token count observed",
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "llamacpp:n_tokens_max",
+          "legendFormat": "max tokens"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 50000 },
+              { "color": "red", "value": 150000 }
+            ]
+          },
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area"
+      }
+    },
+    {
+      "type": "row",
+      "title": "GPU",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 13 },
+      "collapsed": false
+    },
+    {
+      "type": "gauge",
+      "title": "GPU Utilization",
+      "gridPos": { "h": 6, "w": 4, "x": 0, "y": 14 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "nvidia_gpu_utilization_gpu_ratio * 100",
+          "legendFormat": "{{gpu}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null },
+              { "color": "green", "value": 30 },
+              { "color": "yellow", "value": 80 },
+              { "color": "red", "value": 95 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      }
+    },
+    {
+      "type": "gauge",
+      "title": "VRAM Usage",
+      "gridPos": { "h": 6, "w": 4, "x": 4, "y": 14 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "nvidia_gpu_memory_used_bytes / nvidia_gpu_memory_total_bytes * 100",
+          "legendFormat": "{{gpu}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 80 },
+              { "color": "red", "value": 95 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "GPU Temperature",
+      "gridPos": { "h": 3, "w": 4, "x": 8, "y": 14 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "nvidia_gpu_temperature_celsius",
+          "legendFormat": "{{gpu}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null },
+              { "color": "green", "value": 40 },
+              { "color": "yellow", "value": 70 },
+              { "color": "red", "value": 85 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "GPU Power Draw",
+      "gridPos": { "h": 3, "w": 4, "x": 8, "y": 17 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "nvidia_gpu_power_draw_watts",
+          "legendFormat": "{{gpu}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 300 },
+              { "color": "orange", "value": 450 },
+              { "color": "red", "value": 550 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "GPU Utilization & Memory BW Over Time",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 14 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "nvidia_gpu_utilization_gpu_ratio * 100",
+          "legendFormat": "GPU Compute %"
+        },
+        {
+          "expr": "nvidia_gpu_utilization_memory_ratio * 100",
+          "legendFormat": "Memory BW %"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 15
+          }
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "VRAM Usage Over Time",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "nvidia_gpu_memory_used_bytes / 1073741824",
+          "legendFormat": "Used (GB)"
+        },
+        {
+          "expr": "nvidia_gpu_memory_total_bytes / 1073741824",
+          "legendFormat": "Total (GB)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decgbytes",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10
+          }
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "GPU Temperature & Power",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "nvidia_gpu_temperature_celsius",
+          "legendFormat": "Temperature (C)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10
+          }
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "GPU Clock Speeds",
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "nvidia_gpu_clocks_current_graphics_clock_hz / 1000000",
+          "legendFormat": "Graphics (MHz)"
+        },
+        {
+          "expr": "nvidia_gpu_clocks_current_memory_clock_hz / 1000000",
+          "legendFormat": "Memory (MHz)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "MHz",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10
+          }
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "GPU Fan Speed",
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "nvidia_gpu_fan_speed_ratio * 100",
+          "legendFormat": "{{gpu}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "red", "value": 90 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area"
+      }
+    },
+    {
+      "type": "row",
+      "title": "System",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 26 },
+      "collapsed": false
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU Usage",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 27 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\"}[1m])) * 100)",
+          "legendFormat": "CPU Usage %"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 20
+          }
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Memory Usage",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 27 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "(node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / 1073741824",
+          "legendFormat": "Used (GB)"
+        },
+        {
+          "expr": "node_memory_MemTotal_bytes / 1073741824",
+          "legendFormat": "Total (GB)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decgbytes",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10
+          }
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Container CPU & Memory",
+      "description": "Resource usage for the foundry inference container",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 27 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "rate(container_cpu_usage_seconds_total{name=~\".*foundry.*|.*qwen.*\"}[1m]) * 100",
+          "legendFormat": "Container CPU %"
+        },
+        {
+          "expr": "container_memory_usage_bytes{name=~\".*foundry.*|.*qwen.*\"} / 1073741824",
+          "legendFormat": "Container RAM (GB)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10
+          }
+        }
+      }
+    }
+  ]
+}

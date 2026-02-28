@@ -4,6 +4,9 @@
 # Quick start:
 #   docker compose up
 #
+# With monitoring (Prometheus + Grafana + GPU metrics):
+#   docker compose --profile monitoring up
+#
 # With explicit profile:
 #   FOUNDRY_PROFILE=rtx5090 docker compose up
 #
@@ -12,6 +15,9 @@
 # ==============================================================================
 
 services:
+  # ============================================================================
+  # Inference Server
+  # ============================================================================
   qwen3.5-35b-a3b:
     image: ghcr.io/infernet-org/foundry/qwen3.5-35b-a3b:latest
     build:
@@ -52,7 +58,131 @@ services:
       timeout: 10s
       start_period: 120s
       retries: 3
+    networks:
+      - default
+      - monitoring
 
+  # ============================================================================
+  # Monitoring Stack (activated with: --profile monitoring)
+  # ============================================================================
+
+  prometheus:
+    image: prom/prometheus:v3.4.1
+    profiles: [monitoring]
+    container_name: foundry-prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+      - --web.enable-lifecycle
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - monitoring
+    depends_on:
+      qwen3.5-35b-a3b:
+        condition: service_started
+
+  grafana:
+    image: grafana/grafana:11.6.0
+    profiles: [monitoring]
+    container_name: foundry-grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GF_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    ports:
+      - "${GF_PORT:-3000}:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - monitoring
+    depends_on:
+      - prometheus
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    profiles: [monitoring]
+    container_name: foundry-node-exporter
+    restart: unless-stopped
+    command:
+      - --path.procfs=/host/proc
+      - --path.rootfs=/rootfs
+      - --path.sysfs=/host/sys
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    pid: host
+    networks:
+      - monitoring
+
+  nvidia-gpu-exporter:
+    image: utkuozdemir/nvidia_gpu_exporter:1.4.1
+    profiles: [monitoring]
+    container_name: foundry-nvidia-gpu-exporter
+    restart: unless-stopped
+    ports:
+      - "9835:9835"
+    volumes:
+      - /usr/bin/nvidia-smi:/usr/bin/nvidia-smi:ro
+      - /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1:/usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks:
+      - monitoring
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.51.0
+    profiles: [monitoring]
+    container_name: foundry-cadvisor
+    restart: unless-stopped
+    privileged: true
+    ports:
+      - "8081:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    networks:
+      - monitoring
+
+# ==============================================================================
+# Volumes
+# ==============================================================================
 volumes:
   models-cache:
     driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+
+# ==============================================================================
+# Networks
+# ==============================================================================
+networks:
+  default:
+    driver: bridge
+  monitoring:
+    driver: bridge

@@ -1,0 +1,35 @@
+# ==============================================================================
+# Foundry: Prometheus Scrape Configuration
+# ==============================================================================
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # llama-server inference metrics (/metrics endpoint, enabled via --metrics)
+  - job_name: llama-server
+    static_configs:
+      - targets: ["qwen3.5-35b-a3b:8080"]
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # NVIDIA GPU metrics (VRAM, utilization, temperature, power, clocks)
+  - job_name: nvidia-gpu
+    static_configs:
+      - targets: ["nvidia-gpu-exporter:9835"]
+
+  # Host-level metrics (CPU, memory, disk, network)
+  - job_name: node-exporter
+    static_configs:
+      - targets: ["node-exporter:9100"]
+
+  # Container-level metrics (per-container CPU, memory, network, I/O)
+  - job_name: cadvisor
+    static_configs:
+      - targets: ["cadvisor:8080"]
+
+  # Prometheus self-monitoring
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

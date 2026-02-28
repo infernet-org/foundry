@@ -133,12 +133,67 @@ docker compose up
 
 # With explicit profile
 FOUNDRY_PROFILE=rtx5090 docker compose up
+
+# With monitoring stack (Prometheus + Grafana + GPU metrics)
+docker compose --profile monitoring up
 ```
 
-Create a `.env` file for secrets:
+Create a `.env` file for secrets and optional monitoring config:
 
 ```
 HF_TOKEN=hf_your_token_here
+GF_ADMIN_USER=admin
+GF_ADMIN_PASSWORD=admin
+```
+
+## Monitoring
+
+Foundry includes an optional observability stack activated via Docker Compose profiles. It scrapes inference metrics from llama-server, GPU telemetry via nvidia-smi, host resources, and container stats -- all visualized in pre-configured Grafana dashboards.
+
+```bash
+docker compose --profile monitoring up
+```
+
+Then open:
+- **Grafana**: [http://localhost:3000](http://localhost:3000) (default: admin / admin)
+- **Prometheus**: [http://localhost:9090](http://localhost:9090)
+
+### What Gets Monitored
+
+| Layer | Source | Metrics |
+|-------|--------|---------|
+| Inference | llama-server `/metrics` | Decode tok/s, prompt tok/s, active slots, deferred requests, total tokens, decode calls |
+| GPU | nvidia-gpu-exporter | VRAM usage, GPU utilization, memory bandwidth, temperature, power, clock speeds, fan |
+| Host | node-exporter | CPU, RAM, disk, network, load average |
+| Container | cAdvisor | Per-container CPU, memory, network I/O |
+
+### Pre-Configured Dashboards
+
+| Dashboard | Description |
+|-----------|-------------|
+| **Foundry Inference** | Custom dashboard: inference throughput gauges, slot utilization, GPU telemetry, host resources |
+| **Node Exporter Full** | Comprehensive host metrics (community dashboard #1860) |
+| **NVIDIA GPU** | Detailed GPU monitoring (community dashboard #14574) |
+| **cAdvisor** | Docker container resources (community dashboard #14282) |
+
+All dashboards are auto-provisioned on first start -- no manual import needed.
+
+### Architecture
+
+```
+┌─────────────────┐     ┌────────────────┐     ┌─────────┐
+│  llama-server    │────▶│   Prometheus    │────▶│ Grafana │
+│  :8080/metrics   │     │   :9090         │     │ :3000   │
+├─────────────────┤     │                │     └─────────┘
+│  nvidia-gpu-exp  │────▶│  scrapes every  │
+│  :9835           │     │  15 seconds     │
+├─────────────────┤     │                │
+│  node-exporter   │────▶│  30-day         │
+│  :9100           │     │  retention      │
+├─────────────────┤     │                │
+│  cAdvisor        │────▶│                │
+│  :8081           │     └────────────────┘
+└─────────────────┘
 ```
 
 ## Host Kernel Tuning (Optional)
