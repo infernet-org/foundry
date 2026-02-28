@@ -25,7 +25,7 @@ services:
     ports:
       - "${FOUNDRY_PORT:-8080}:8080"
     volumes:
-      - models-cache:/models
+      - ~/.cache/foundry:/models
     env_file:
       - path: .env
         required: false
@@ -41,13 +41,6 @@ services:
               count: 1
               capabilities: [gpu]
     shm_size: '2gb'
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
-      stack:
-        soft: 67108864
-        hard: 67108864
     sysctls:
       - net.core.somaxconn=4096
       - net.ipv4.tcp_keepalive_time=60
@@ -137,14 +130,13 @@ services:
       - "9835:9835"
     volumes:
       - /usr/bin/nvidia-smi:/usr/bin/nvidia-smi:ro
-      - /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1:/usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1:ro
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
               count: all
-              capabilities: [gpu]
+              capabilities: [gpu, utility]
     networks:
       - monitoring
 
@@ -171,8 +163,6 @@ services:
 # Volumes
 # ==============================================================================
 volumes:
-  models-cache:
-    driver: local
   prometheus-data:
     driver: local
   grafana-data:

@@ -8,7 +8,7 @@ MODEL_TAG ?= $(REGISTRY)/$(MODEL)
 PORT ?= 8080
 MODELS_DIR ?= $(HOME)/.cache/foundry
 
-.PHONY: help build run run-profile test benchmark push push-all clean clean-models download
+.PHONY: help build run run-profile test benchmark monitoring down push push-all clean clean-models download
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -23,7 +23,16 @@ build: ## Build the model image
 
 # --- Run ---------------------------------------------------------------------
 
-run: ## Run the model container (auto-detect GPU)
+up: ## Start via docker compose (detatched)
+	docker compose up -d
+
+monitoring: ## Start via docker compose with full monitoring stack
+	docker compose --profile monitoring up -d
+
+down: ## Stop all docker compose services
+	docker compose --profile monitoring down
+
+run: ## Run the model container directly (auto-detect GPU)
 	@mkdir -p $(MODELS_DIR)
 	docker run --gpus all \
 		--shm-size 2g \
