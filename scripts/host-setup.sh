@@ -39,9 +39,28 @@ echo ""
 # Memory: Reduce swappiness to keep model weights in RAM
 # ==============================================================================
 CURRENT_SWAPPINESS=$(cat /proc/sys/vm/swappiness)
-log "vm.swappiness: ${CURRENT_SWAPPINESS} -> 10"
-sysctl -w vm.swappiness=10 > /dev/null
-ok "vm.swappiness = 10 (model weights stay in RAM)"
+log "vm.swappiness: ${CURRENT_SWAPPINESS} -> 0"
+sysctl -w vm.swappiness=0 > /dev/null
+ok "vm.swappiness = 0 (model weights strictly stay in RAM)"
+
+# ==============================================================================
+# Memory: Disable NUMA balancing (prevents random latency spikes)
+# ==============================================================================
+if [ -f /proc/sys/kernel/numa_balancing ]; then
+    CURRENT_NUMA=$(cat /proc/sys/kernel/numa_balancing)
+    log "kernel.numa_balancing: ${CURRENT_NUMA} -> 0"
+    sysctl -w kernel.numa_balancing=0 > /dev/null
+    ok "kernel.numa_balancing = 0 (disabled page migration jitter)"
+fi
+
+# ==============================================================================
+# Memory: Optimize THP defrag (prevent stall during hugepage allocation)
+# ==============================================================================
+if [ -f /sys/kernel/mm/transparent_hugepage/defrag ]; then
+    log "THP defrag -> defer+madvise"
+    echo "defer+madvise" > /sys/kernel/mm/transparent_hugepage/defrag 2>/dev/null || true
+    ok "THP defrag = defer+madvise (prevents allocation stalls)"
+fi
 
 # ==============================================================================
 # Memory: Allow overcommit for reliable mlock() on large models
@@ -72,23 +91,62 @@ else
 fi
 
 # ==============================================================================
-# Network: TCP tuning for API latency
+# I/O: Optimize NVMe for model loading
 # ==============================================================================
+for dev in /sys/block/nvme*; do
+    if [ -d "$dev" ]; then
+        # Set scheduler to none (NVMe drives handle their own queues)
+        echo "none" > "${dev}/queue/scheduler" 2>/dev/null || true
+        # Increase read-ahead to 4MB (8192 * 512b) for fast sequential model loads
+        echo 8192 > "${dev}/queue/read_ahead_kb" 2>/dev/null || true
+    fi
+done
+ok "NVMe I/O tuned (scheduler=none, read_ahead=4MB)"
+
+# ==============================================================================
+# Network: TCP tuning for ultra-low latency SSE streaming (API latency)
+# ==============================================================================
+# Enable BBR congestion control for smoother token streaming over WAN
+modprobe tcp_bbr 2>/dev/null || true
+sysctl -w net.core.default_qdisc=fq > /dev/null
+sysctl -w net.ipv4.tcp_congestion_control=bbr > /dev/null
+
+# Increase connection queues and buffers
 sysctl -w net.core.somaxconn=4096 > /dev/null
 sysctl -w net.ipv4.tcp_keepalive_time=60 > /dev/null
 sysctl -w net.core.rmem_max=16777216 > /dev/null
 sysctl -w net.core.wmem_max=16777216 > /dev/null
 sysctl -w net.ipv4.tcp_fastopen=3 > /dev/null
-ok "TCP tuning applied (somaxconn=4096, fastopen=3, buffers=16MB)"
+
+# Enable Busy Polling (reduces NIC-to-CPU interrupt latency by polling)
+sysctl -w net.core.busy_read=50 > /dev/null
+sysctl -w net.core.busy_poll=50 > /dev/null
+
+ok "TCP tuned: BBR enabled, buffers=16MB, busy_polling=50us"
 
 # ==============================================================================
-# CPU: Set performance governor (disable frequency scaling)
+# PCIe: Disable Active State Power Management (ASPM) for MoE routing latency
+# ==============================================================================
+# PCIe ASPM saves power by putting the link to sleep, but waking it up adds
+# microsecond latency. MoE models rely on instant CPU-to-GPU expert routing.
+for dev in /sys/bus/pci/devices/*/power/control; do
+    echo "on" > "$dev" 2>/dev/null || true
+done
+if [ -f /sys/module/pcie_aspm/parameters/policy ]; then
+    echo "performance" > /sys/module/pcie_aspm/parameters/policy 2>/dev/null || true
+fi
+ok "PCIe ASPM disabled (forces links to maximum performance state)"
+
+# ==============================================================================
+# CPU: Governor and Energy Bias Hint (EPB)
 # ==============================================================================
 if command -v cpupower &> /dev/null; then
     CURRENT_GOV=$(cpupower frequency-info -p 2>/dev/null | grep -oP '"[^"]*"' | tr -d '"' || echo "unknown")
     log "CPU governor: ${CURRENT_GOV} -> performance"
-    cpupower frequency-set -g performance > /dev/null 2>&1 || warn "Could not set CPU governor (may require kernel module)"
-    ok "CPU governor set to performance"
+    cpupower frequency-set -g performance > /dev/null 2>&1 || warn "Could not set CPU governor"
+    # Set Energy Performance Bias to maximum performance (Intel only)
+    cpupower set --perf-bias 0 > /dev/null 2>&1 || true
+    ok "CPU governor set to performance (EPB=0)"
 elif [ -f /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor ]; then
     for gov in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
         echo "performance" > "$gov" 2>/dev/null || true
@@ -118,8 +176,9 @@ echo ""
 echo -e "${GREEN}============================================================${NC}"
 echo -e "${GREEN} Host tuning complete. Changes are NOT persistent.${NC}"
 echo -e "${GREEN} To persist, add to /etc/sysctl.d/99-foundry.conf:${NC}"
-echo -e "${CYAN}   vm.swappiness = 10${NC}"
+echo -e "${CYAN}   vm.swappiness = 0${NC}"
 echo -e "${CYAN}   vm.overcommit_memory = 1${NC}"
+echo -e "${CYAN}   kernel.numa_balancing = 0${NC}"
 echo -e "${CYAN}   vm.dirty_ratio = 80${NC}"
 echo -e "${CYAN}   vm.dirty_background_ratio = 5${NC}"
 echo -e "${CYAN}   vm.nr_hugepages = ${TARGET_HUGEPAGES}${NC}"
@@ -127,5 +186,13 @@ echo -e "${CYAN}   net.core.somaxconn = 4096${NC}"
 echo -e "${CYAN}   net.core.rmem_max = 16777216${NC}"
 echo -e "${CYAN}   net.core.wmem_max = 16777216${NC}"
 echo -e "${CYAN}   net.ipv4.tcp_fastopen = 3${NC}"
+echo -e "${CYAN}   net.core.default_qdisc = fq${NC}"
+echo -e "${CYAN}   net.ipv4.tcp_congestion_control = bbr${NC}"
+echo -e "${CYAN}   net.core.busy_read = 50${NC}"
+echo -e "${CYAN}   net.core.busy_poll = 50${NC}"
+echo ""
+echo -e "${YELLOW} ADVANCED MoE/Blackwell TUNING (Requires GRUB reboot):${NC}"
+echo -e "${CYAN} To completely isolate CPU cores for instant MoE expert routing, append this to GRUB_CMDLINE_LINUX:${NC}"
+echo -e "${CYAN}   isolcpus=0-15 nohz_full=0-15 rcu_nocbs=0-15 intel_pstate=passive pcie_aspm=off${NC}"
 echo -e "${GREEN}============================================================${NC}"
 echo ""

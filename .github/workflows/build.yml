@@ -12,11 +12,15 @@ env:
 
 jobs:
   build-model:
-    name: Build Model Image
+    name: Build ${{ matrix.model }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+
+    strategy:
+      matrix:
+        model: [qwen3.5-35b-a3b, hermes-4.3-36b]
 
     steps:
       - name: Checkout
@@ -36,10 +40,10 @@ jobs:
       - name: Build and push model image
         uses: docker/build-push-action@v6
         with:
-          context: models/qwen3.5-35b-a3b/
+          context: models/${{ matrix.model }}/
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
-            ${{ env.REGISTRY }}/qwen3.5-35b-a3b:latest
-            ${{ github.ref_type == 'tag' && format('{0}/qwen3.5-35b-a3b:{1}', env.REGISTRY, github.ref_name) || '' }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            ${{ env.REGISTRY }}/${{ matrix.model }}:latest
+            ${{ github.ref_type == 'tag' && format('{0}/{1}:{2}', env.REGISTRY, matrix.model, github.ref_name) || '' }}
+          cache-from: type=gha,scope=${{ matrix.model }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.model }}

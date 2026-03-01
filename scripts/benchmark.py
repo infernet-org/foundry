@@ -4,12 +4,12 @@ Foundry Benchmark Script
 Measures token generation speed, time-to-first-token, and throughput for Qwen3.5-35B-A3B
 """
 
+import argparse
+import json
+import subprocess
 import sys
 import time
-import json
-import argparse
 from datetime import datetime
-import subprocess
 
 try:
     import requests
@@ -28,16 +28,19 @@ def benchmark_generation_speed(
     max_tokens: int = 128,
 ) -> dict:
     """Measure tokens per second during generation."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("GENERATION SPEED BENCHMARK")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"Requests: {num_requests} | Max tokens: {max_tokens}\n")
 
     url = f"{base_url}/v1/chat/completions"
     payload = {
         "model": model,
         "messages": [
-            {"role": "user", "content": "Count from 1 to 100, list each number on a new line. Be thorough."}
+            {
+                "role": "user",
+                "content": "Count from 1 to 100, list each number on a new line. Be thorough.",
+            }
         ],
         "max_tokens": max_tokens,
         "temperature": 0.7,
@@ -54,7 +57,7 @@ def benchmark_generation_speed(
 
     for i in range(num_requests):
         try:
-            print(f"Request {i+1}/{num_requests}...", end=" ", flush=True)
+            print(f"Request {i + 1}/{num_requests}...", end=" ", flush=True)
             start_time = time.time()
 
             response = requests.post(url, json=payload, timeout=120)
@@ -84,7 +87,7 @@ def benchmark_generation_speed(
         avg_tps = sum(results["tps"]) / len(results["tps"])
         min_tps = min(results["tps"])
         max_tps = max(results["tps"])
-        print(f"\nResults:")
+        print("\nResults:")
         print(f"  Average:    {avg_tps:.2f} tok/s")
         print(f"  Min:        {min_tps:.2f} tok/s")
         print(f"  Max:        {max_tps:.2f} tok/s")
@@ -103,9 +106,9 @@ def benchmark_prompt_processing(
     if prompt_sizes is None:
         prompt_sizes = [100, 500, 1000]
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("PROMPT PROCESSING SPEED")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     url = f"{base_url}/v1/chat/completions"
     results: dict = {}
@@ -113,15 +116,13 @@ def benchmark_prompt_processing(
     for size in prompt_sizes:
         try:
             # Create a prompt of approximately `size` tokens
-            prompt = ("The quick brown fox jumps over the lazy dog. " * (size // 10))[:size*4]
+            prompt = ("The quick brown fox jumps over the lazy dog. " * (size // 10))[: size * 4]
 
             print(f"Prompt size ~{size} tokens...", end=" ", flush=True)
 
             payload = {
                 "model": model,
-                "messages": [
-                    {"role": "user", "content": prompt}
-                ],
+                "messages": [{"role": "user", "content": prompt}],
                 "max_tokens": 10,
                 "temperature": 0.7,
             }
@@ -151,9 +152,9 @@ def benchmark_concurrent_throughput(
     num_iterations: int = 3,
 ) -> None:
     """Measure sustained throughput with multiple concurrent requests."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("CONCURRENT THROUGHPUT")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"Concurrent slots: {num_concurrent} | Iterations: {num_iterations}\n")
 
     import concurrent.futures
@@ -161,9 +162,7 @@ def benchmark_concurrent_throughput(
     url = f"{base_url}/v1/chat/completions"
     payload = {
         "model": model,
-        "messages": [
-            {"role": "user", "content": "Write a haiku about artificial intelligence"}
-        ],
+        "messages": [{"role": "user", "content": "Write a haiku about artificial intelligence"}],
         "max_tokens": 50,
         "temperature": 0.7,
     }
@@ -185,7 +184,7 @@ def benchmark_concurrent_throughput(
     request_count = 0
 
     for iteration in range(num_iterations):
-        print(f"Iteration {iteration+1}/{num_iterations}: ", end="", flush=True)
+        print(f"Iteration {iteration + 1}/{num_iterations}: ", end="", flush=True)
 
         start_batch = time.time()
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_concurrent) as executor:
@@ -207,7 +206,7 @@ def benchmark_concurrent_throughput(
 
     if total_time > 0:
         avg_tps = total_tokens / total_time
-        print(f"\nOverall:")
+        print("\nOverall:")
         print(f"  Total tokens:      {total_tokens}")
         print(f"  Total time:        {total_time:.2f}s")
         print(f"  Average throughput: {avg_tps:.2f} tok/s")
@@ -238,15 +237,20 @@ def main() -> None:
         default="all",
         help="Benchmark mode",
     )
-    parser.add_argument("--requests", type=int, default=5, help="Number of requests for generation bench")
+    parser.add_argument(
+        "--requests",
+        type=int,
+        default=5,
+        help="Number of requests for generation bench",
+    )
     parser.add_argument("--concurrent", type=int, default=4, help="Concurrent requests")
     parser.add_argument("--output", help="Save results to JSON file")
 
     args = parser.parse_args()
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("FOUNDRY BENCHMARK")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"Server: {args.url}")
     print(f"Time: {datetime.now().isoformat()}\n")
 
@@ -257,17 +261,22 @@ def main() -> None:
 
     if args.mode in ["all", "generation"]:
         results["generation"] = benchmark_generation_speed(
-            args.url, model=args.model, num_requests=args.requests,
+            args.url,
+            model=args.model,
+            num_requests=args.requests,
         )
 
     if args.mode in ["all", "prompt"]:
         results["prompt_processing"] = benchmark_prompt_processing(
-            args.url, model=args.model,
+            args.url,
+            model=args.model,
         )
 
     if args.mode in ["all", "throughput"]:
         benchmark_concurrent_throughput(
-            args.url, model=args.model, num_concurrent=args.concurrent,
+            args.url,
+            model=args.model,
+            num_concurrent=args.concurrent,
         )
 
     if args.output:
@@ -275,7 +284,7 @@ def main() -> None:
             json.dump(results, f, indent=2)
         print(f"\nResults saved to {args.output}")
 
-    print(f"\n{'='*60}\n")
+    print(f"\n{'=' * 60}\n")
 
 
 if __name__ == "__main__":

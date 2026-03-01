@@ -1,5 +1,5 @@
 # ==============================================================================
-# Foundry Model Image: Qwen3.5-35B-A3B
+# Foundry Model Image: Hermes-4.3-36B
 # ==============================================================================
 # Multi-stage build for a minimal CUDA runtime.
 # Compiles llama.cpp from source for sm_89 (Ada) and sm_120a (Blackwell),
@@ -52,10 +52,10 @@ ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
 # Model metadata
-ENV FOUNDRY_MODEL_NAME="Qwen3.5-35B-A3B"
-ENV FOUNDRY_GGUF_REPO="unsloth/Qwen3.5-35B-A3B-GGUF"
-ENV FOUNDRY_GGUF_FILE="Qwen3.5-35B-A3B-UD-Q4_K_XL.gguf"
-ENV FOUNDRY_ARCH="moe"
+ENV FOUNDRY_MODEL_NAME="Hermes-4.3-36B"
+ENV FOUNDRY_GGUF_REPO="NousResearch/Hermes-4.3-36B-GGUF"
+ENV FOUNDRY_GGUF_FILE="hermes-4_3_36b-Q4_K_M.gguf"
+ENV FOUNDRY_ARCH="dense"
 
 # Enable fast downloads
 ENV HF_HUB_ENABLE_HF_TRANSFER="1"

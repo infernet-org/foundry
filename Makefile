@@ -3,6 +3,7 @@
 # ==============================================================================
 
 REGISTRY ?= ghcr.io/infernet-org/foundry
+# Default model (can be overridden: make run MODEL=hermes-4.3-36b)
 MODEL ?= qwen3.5-35b-a3b
 MODEL_TAG ?= $(REGISTRY)/$(MODEL)
 PORT ?= 8080
@@ -11,12 +12,16 @@ MODELS_DIR ?= $(HOME)/.cache/foundry
 .PHONY: help build run run-profile test benchmark monitoring down push push-all clean clean-models download
 
 help: ## Show this help
+	@echo "Available models: qwen3.5-35b-a3b (default), hermes-4.3-36b"
+	@echo "Usage: make run MODEL=hermes-4.3-36b"
+	@echo ""
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 # --- Build -------------------------------------------------------------------
 
 build: ## Build the model image
+	@cp scripts/entrypoint.sh models/$(MODEL)/entrypoint.sh
 	docker build \
 		-t $(MODEL_TAG):latest \
 		models/$(MODEL)/
@@ -24,10 +29,10 @@ build: ## Build the model image
 # --- Run ---------------------------------------------------------------------
 
 up: ## Start via docker compose (detatched)
-	docker compose up -d
+	FOUNDRY_MODEL=$(MODEL) docker compose up -d
 
 monitoring: ## Start via docker compose with full monitoring stack
-	docker compose --profile monitoring up -d
+	FOUNDRY_MODEL=$(MODEL) docker compose --profile monitoring up -d
 
 down: ## Stop all docker compose services
 	docker compose --profile monitoring down
@@ -102,7 +107,7 @@ test: ## Smoke test: start container, wait for health, send one request
 # --- Download ----------------------------------------------------------------
 
 download: ## Download the GGUF model file
-	./scripts/download-model.sh
+	./scripts/download-model.sh --model $(MODEL)
 
 # --- Benchmark ---------------------------------------------------------------
 

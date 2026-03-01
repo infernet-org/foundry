@@ -619,11 +619,11 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "rate(container_cpu_usage_seconds_total{name=~\".*foundry.*|.*qwen.*\"}[1m]) * 100",
+          "expr": "rate(container_cpu_usage_seconds_total{name=~\".*foundry.*|.*inference.*\"}[1m]) * 100",
           "legendFormat": "Container CPU %"
         },
         {
-          "expr": "container_memory_usage_bytes{name=~\".*foundry.*|.*qwen.*\"} / 1073741824",
+          "expr": "container_memory_usage_bytes{name=~\".*foundry.*|.*inference.*\"} / 1073741824",
           "legendFormat": "Container RAM (GB)"
         }
       ],

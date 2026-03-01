@@ -27,7 +27,6 @@
 PROFILE_CTX_LENGTH=196608       # 192K context -- uses ~2GB KV, fits with 5GB headroom
 PROFILE_THREADS=16              # Physical cores (avoid hyperthreads for decode)
 PROFILE_THREADS_BATCH=20        # Higher thread count for prompt processing
-PROFILE_FIT="on"                # Auto GPU/CPU split (all-GPU at 32GB)
 PROFILE_FLASH_ATTN="on"         # Flash attention for long context perf
 PROFILE_KV_TYPE_K="q8_0"        # KV cache key quantization
 PROFILE_KV_TYPE_V="q8_0"        # KV cache value quantization

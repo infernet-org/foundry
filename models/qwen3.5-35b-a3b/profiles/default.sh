@@ -9,7 +9,6 @@
 PROFILE_CTX_LENGTH=16384        # 16K context, safe for any GPU
 PROFILE_THREADS=8               # Conservative thread count
 PROFILE_THREADS_BATCH=8         # Match decode threads for safety
-PROFILE_FIT="on"                # Auto GPU/CPU split
 PROFILE_FLASH_ATTN="on"         # Flash attention
 PROFILE_KV_TYPE_K="q4_0"        # Aggressive KV quant for unknown VRAM
 PROFILE_KV_TYPE_V="q4_0"        # Saves memory on constrained GPUs
