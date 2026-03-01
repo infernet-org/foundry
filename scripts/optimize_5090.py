@@ -7,10 +7,9 @@ benchmarks each one, and reports a comparison table of decode/encode tok/s.
 """
 
 import os
+import subprocess
 import sys
 import time
-import subprocess
-import json
 from datetime import datetime
 from pathlib import Path
 
@@ -112,14 +111,18 @@ def run_benchmark(mode: str = "generation") -> tuple[float, float]:
     """Run the benchmark script and parse results."""
     benchmark_script = os.path.join(SCRIPT_DIR, "benchmark.py")
     cmd = [
-        sys.executable, benchmark_script,
-        "--url", f"http://localhost:{PORT}",
-        "--mode", mode,
-        "--requests", "3",
+        sys.executable,
+        benchmark_script,
+        "--url",
+        f"http://localhost:{PORT}",
+        "--mode",
+        mode,
+        "--requests",
+        "3",
     ]
     result = run_cmd(cmd)
 
-    lines = result.stdout.split('\n')
+    lines = result.stdout.split("\n")
     avg_tps = 0.0
     prompt_tps = 0.0
 
@@ -129,7 +132,7 @@ def run_benchmark(mode: str = "generation") -> tuple[float, float]:
             avg_tps = float(parts[1])
         if "Prompt size ~1000 tokens" in line:
             try:
-                time_s = float(line.split()[-1].replace('s', ''))
+                time_s = float(line.split()[-1].replace("s", ""))
                 prompt_tps = 1000 / time_s
             except (ValueError, IndexError, ZeroDivisionError):
                 pass
@@ -151,16 +154,22 @@ def main() -> None:
         run_cmd(["docker", "rm", "-f", "foundry-tune"])
 
         docker_cmd = [
-            "docker", "run",
+            "docker",
+            "run",
             "--runtime=nvidia",
-            "-e", "NVIDIA_VISIBLE_DEVICES=all",
+            "-e",
+            "NVIDIA_VISIBLE_DEVICES=all",
             "-d",
-            "--name", "foundry-tune",
-            "-p", f"{PORT}:8080",
-            "-v", f"{MODELS_DIR}:/models",
-            "-e", f"FOUNDRY_GGUF_FILE={conf['quant']}",
+            "--name",
+            "foundry-tune",
+            "-p",
+            f"{PORT}:8080",
+            "-v",
+            f"{MODELS_DIR}:/models",
+            "-e",
+            f"FOUNDRY_GGUF_FILE={conf['quant']}",
         ]
-        for k, v in conf['env'].items():
+        for k, v in conf["env"].items():
             docker_cmd.extend(["-e", f"{k}={v}"])
         docker_cmd.append(IMAGE_NAME)
 
@@ -179,11 +188,11 @@ def main() -> None:
         print("\nRunning Encoding Benchmark (Prompt Processing)...")
         _, enc_tps = run_benchmark("prompt")
 
-        results[conf['name']] = {
+        results[conf["name"]] = {
             "decode_tps": dec_tps,
             "encode_tps": enc_tps,
-            "quant": conf['quant'],
-            "env": conf['env'],
+            "quant": conf["quant"],
+            "env": conf["env"],
         }
 
         print(f"\nRESULTS FOR {conf['name']}:")
@@ -194,7 +203,10 @@ def main() -> None:
     print("FINAL SUMMARY")
     print(f"{'='*60}")
     for name, res in results.items():
-        print(f"{name:30} | Decode: {res['decode_tps']:6.2f} tok/s | Encode: {res['encode_tps']:8.2f} tok/s")
+        print(
+            f"{name:30} | Decode: {res['decode_tps']:6.2f} tok/s"
+            f" | Encode: {res['encode_tps']:8.2f} tok/s"
+        )
 
     run_cmd(["docker", "rm", "-f", "foundry-tune"])
 
