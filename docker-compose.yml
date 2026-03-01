@@ -19,7 +19,23 @@
 
 services:
   # ============================================================================
-  # Inference Server
+  # eBPF Exporter (Linux Kernel metrics)
+  # ============================================================================
+  ebpf-exporter:
+    image: ghcr.io/cloudflare/ebpf_exporter:latest
+    profiles:
+      - monitoring
+    privileged: true
+    pid: host
+    network_mode: host
+    volumes:
+      - /sys/kernel/debug:/sys/kernel/debug:ro
+      - /sys/kernel/tracing:/sys/kernel/tracing:ro
+      - /lib/modules:/lib/modules:ro
+    command: ["--config.file=/examples/biolatency.yaml"]
+
+  # ============================================================================
+  # Prometheus (Scrapes metrics)
   # ============================================================================
   inference:
     image: ghcr.io/infernet-org/foundry/${FOUNDRY_MODEL:-qwen3.5-35b-a3b}:latest
@@ -66,15 +82,13 @@ services:
   # ============================================================================
 
   prometheus:
-    image: prom/prometheus:v3.4.1
-    profiles: [monitoring]
-    container_name: foundry-prometheus
-    restart: unless-stopped
-    command:
-      - --config.file=/etc/prometheus/prometheus.yml
-      - --storage.tsdb.path=/prometheus
-      - --storage.tsdb.retention.time=30d
-      - --web.enable-lifecycle
+    image: prom/prometheus:latest
+    profiles:
+      - monitoring
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "9090:9090"
     volumes:

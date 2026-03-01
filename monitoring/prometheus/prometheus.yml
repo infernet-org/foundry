@@ -29,6 +29,11 @@ scrape_configs:
     static_configs:
       - targets: ["cadvisor:8080"]
 
+  # eBPF kernel metrics (I/O, scheduling, etc.)
+  - job_name: ebpf-exporter
+    static_configs:
+      - targets: ["host.docker.internal:9435"]
+
   # Prometheus self-monitoring
   - job_name: prometheus
     static_configs:
