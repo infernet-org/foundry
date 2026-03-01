@@ -45,5 +45,5 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ matrix.model }}:latest
             ${{ github.ref_type == 'tag' && format('{0}/{1}:{2}', env.REGISTRY, matrix.model, github.ref_name) || '' }}
-          cache-from: type=gha,scope=${{ matrix.model }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.model }}
+          cache-from: type=gha,scope=${{ matrix.model }}-v2
+          cache-to: type=gha,mode=max,scope=${{ matrix.model }}-v2
