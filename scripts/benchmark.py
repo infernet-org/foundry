@@ -28,9 +28,9 @@ def benchmark_generation_speed(
     max_tokens: int = 128,
 ) -> dict:
     """Measure tokens per second during generation."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("GENERATION SPEED BENCHMARK")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"Requests: {num_requests} | Max tokens: {max_tokens}\n")
 
     url = f"{base_url}/v1/chat/completions"
@@ -57,7 +57,7 @@ def benchmark_generation_speed(
 
     for i in range(num_requests):
         try:
-            print(f"Request {i+1}/{num_requests}...", end=" ", flush=True)
+            print(f"Request {i + 1}/{num_requests}...", end=" ", flush=True)
             start_time = time.time()
 
             response = requests.post(url, json=payload, timeout=120)
@@ -106,9 +106,9 @@ def benchmark_prompt_processing(
     if prompt_sizes is None:
         prompt_sizes = [100, 500, 1000]
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("PROMPT PROCESSING SPEED")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     url = f"{base_url}/v1/chat/completions"
     results: dict = {}
@@ -152,9 +152,9 @@ def benchmark_concurrent_throughput(
     num_iterations: int = 3,
 ) -> None:
     """Measure sustained throughput with multiple concurrent requests."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("CONCURRENT THROUGHPUT")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"Concurrent slots: {num_concurrent} | Iterations: {num_iterations}\n")
 
     import concurrent.futures
@@ -184,7 +184,7 @@ def benchmark_concurrent_throughput(
     request_count = 0
 
     for iteration in range(num_iterations):
-        print(f"Iteration {iteration+1}/{num_iterations}: ", end="", flush=True)
+        print(f"Iteration {iteration + 1}/{num_iterations}: ", end="", flush=True)
 
         start_batch = time.time()
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_concurrent) as executor:
@@ -248,9 +248,9 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("FOUNDRY BENCHMARK")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"Server: {args.url}")
     print(f"Time: {datetime.now().isoformat()}\n")
 
@@ -284,7 +284,7 @@ def main() -> None:
             json.dump(results, f, indent=2)
         print(f"\nResults saved to {args.output}")
 
-    print(f"\n{'='*60}\n")
+    print(f"\n{'=' * 60}\n")
 
 
 if __name__ == "__main__":

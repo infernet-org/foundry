@@ -147,9 +147,9 @@ def main() -> None:
     results: dict = {}
 
     for conf in CONFIGS:
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"TESTING CONFIG: {conf['name']}")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         run_cmd(["docker", "rm", "-f", "foundry-tune"])
 
@@ -199,9 +199,9 @@ def main() -> None:
         print(f"  Decode: {dec_tps:.2f} tok/s")
         print(f"  Encode: {enc_tps:.2f} tok/s")
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("FINAL SUMMARY")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     for name, res in results.items():
         print(
             f"{name:30} | Decode: {res['decode_tps']:6.2f} tok/s"
