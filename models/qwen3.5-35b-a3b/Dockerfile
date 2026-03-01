@@ -19,13 +19,15 @@ RUN git clone --depth 1 -b b8183 https://github.com/ggml-org/llama.cpp.git /llam
 WORKDIR /llama.cpp
 
 # Compile explicitly for Ada (sm_89) and Blackwell (sm_120a)
-RUN cmake -B build \
+RUN export LD_LIBRARY_PATH=/usr/local/cuda/lib64/stubs:$LD_LIBRARY_PATH && \
+    cmake -B build \
     -DGGML_CUDA=ON \
     -DCMAKE_CUDA_ARCHITECTURES="89;120a" \
     -DCMAKE_BUILD_TYPE=Release \
     -DLLAMA_CURL=OFF \
     -DLLAMA_BUILD_TESTS=OFF \
-    -DLLAMA_BUILD_EXAMPLES=OFF && \
+    -DLLAMA_BUILD_EXAMPLES=OFF \
+    -DCMAKE_EXE_LINKER_FLAGS="-Wl,-rpath-link,/usr/local/cuda/lib64/stubs -L/usr/local/cuda/lib64/stubs" && \
     cmake --build build --config Release -j$(nproc) --target llama-server
 
 # ------------------------------------------------------------------------------
@@ -65,7 +67,7 @@ COPY --from=builder /llama.cpp/build/bin/llama-server /app/llama-server
 COPY --from=builder /llama.cpp/build/ggml/src/libggml.so /app/
 COPY --from=builder /llama.cpp/build/ggml/src/ggml-cuda/libggml-cuda.so /app/
 COPY --from=builder /llama.cpp/build/src/libllama.so /app/
-ENV LD_LIBRARY_PATH=/app:$LD_LIBRARY_PATH
+ENV LD_LIBRARY_PATH="/app:${LD_LIBRARY_PATH:-/usr/local/cuda/lib64:/usr/lib/x86_64-linux-gnu}"
 
 # Copy profiles and shared entrypoint
 COPY profiles/ /opt/foundry/profiles/
