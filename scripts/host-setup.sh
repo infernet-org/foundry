@@ -114,13 +114,28 @@ sysctl -w net.ipv4.tcp_fastopen=3 > /dev/null
 ok "TCP tuning applied (somaxconn=4096, fastopen=3, buffers=16MB)"
 
 # ==============================================================================
-# CPU: Set performance governor (disable frequency scaling)
+# PCIe: Disable Active State Power Management (ASPM) for MoE routing latency
+# ==============================================================================
+# PCIe ASPM saves power by putting the link to sleep, but waking it up adds
+# microsecond latency. MoE models rely on instant CPU-to-GPU expert routing.
+for dev in /sys/bus/pci/devices/*/power/control; do
+    echo "on" > "$dev" 2>/dev/null || true
+done
+if [ -f /sys/module/pcie_aspm/parameters/policy ]; then
+    echo "performance" > /sys/module/pcie_aspm/parameters/policy 2>/dev/null || true
+fi
+ok "PCIe ASPM disabled (forces links to maximum performance state)"
+
+# ==============================================================================
+# CPU: Governor and Energy Bias Hint (EPB)
 # ==============================================================================
 if command -v cpupower &> /dev/null; then
     CURRENT_GOV=$(cpupower frequency-info -p 2>/dev/null | grep -oP '"[^"]*"' | tr -d '"' || echo "unknown")
     log "CPU governor: ${CURRENT_GOV} -> performance"
-    cpupower frequency-set -g performance > /dev/null 2>&1 || warn "Could not set CPU governor (may require kernel module)"
-    ok "CPU governor set to performance"
+    cpupower frequency-set -g performance > /dev/null 2>&1 || warn "Could not set CPU governor"
+    # Set Energy Performance Bias to maximum performance (Intel only)
+    cpupower set --perf-bias 0 > /dev/null 2>&1 || true
+    ok "CPU governor set to performance (EPB=0)"
 elif [ -f /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor ]; then
     for gov in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
         echo "performance" > "$gov" 2>/dev/null || true
@@ -160,5 +175,9 @@ echo -e "${CYAN}   net.core.somaxconn = 4096${NC}"
 echo -e "${CYAN}   net.core.rmem_max = 16777216${NC}"
 echo -e "${CYAN}   net.core.wmem_max = 16777216${NC}"
 echo -e "${CYAN}   net.ipv4.tcp_fastopen = 3${NC}"
+echo ""
+echo -e "${YELLOW} ADVANCED MoE/Blackwell TUNING (Requires GRUB reboot):${NC}"
+echo -e "${CYAN} To completely isolate CPU cores for instant MoE expert routing, append this to GRUB_CMDLINE_LINUX:${NC}"
+echo -e "${CYAN}   isolcpus=0-15 nohz_full=0-15 rcu_nocbs=0-15 intel_pstate=passive pcie_aspm=off${NC}"
 echo -e "${GREEN}============================================================${NC}"
 echo ""
