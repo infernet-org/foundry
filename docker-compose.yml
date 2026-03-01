@@ -49,11 +49,14 @@ services:
       - net.ipv4.tcp_keepalive_time=60
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      start_period: 120s
-      retries: 3
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
     networks:
       - default
       - monitoring

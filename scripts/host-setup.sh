@@ -39,9 +39,28 @@ echo ""
 # Memory: Reduce swappiness to keep model weights in RAM
 # ==============================================================================
 CURRENT_SWAPPINESS=$(cat /proc/sys/vm/swappiness)
-log "vm.swappiness: ${CURRENT_SWAPPINESS} -> 10"
-sysctl -w vm.swappiness=10 > /dev/null
-ok "vm.swappiness = 10 (model weights stay in RAM)"
+log "vm.swappiness: ${CURRENT_SWAPPINESS} -> 0"
+sysctl -w vm.swappiness=0 > /dev/null
+ok "vm.swappiness = 0 (model weights strictly stay in RAM)"
+
+# ==============================================================================
+# Memory: Disable NUMA balancing (prevents random latency spikes)
+# ==============================================================================
+if [ -f /proc/sys/kernel/numa_balancing ]; then
+    CURRENT_NUMA=$(cat /proc/sys/kernel/numa_balancing)
+    log "kernel.numa_balancing: ${CURRENT_NUMA} -> 0"
+    sysctl -w kernel.numa_balancing=0 > /dev/null
+    ok "kernel.numa_balancing = 0 (disabled page migration jitter)"
+fi
+
+# ==============================================================================
+# Memory: Optimize THP defrag (prevent stall during hugepage allocation)
+# ==============================================================================
+if [ -f /sys/kernel/mm/transparent_hugepage/defrag ]; then
+    log "THP defrag -> defer+madvise"
+    echo "defer+madvise" > /sys/kernel/mm/transparent_hugepage/defrag 2>/dev/null || true
+    ok "THP defrag = defer+madvise (prevents allocation stalls)"
+fi
 
 # ==============================================================================
 # Memory: Allow overcommit for reliable mlock() on large models
@@ -70,6 +89,19 @@ if [ "$CURRENT_HUGEPAGES" -lt "$TARGET_HUGEPAGES" ]; then
 else
     ok "vm.nr_hugepages already >= ${TARGET_HUGEPAGES} (${CURRENT_HUGEPAGES})"
 fi
+
+# ==============================================================================
+# I/O: Optimize NVMe for model loading
+# ==============================================================================
+for dev in /sys/block/nvme* 2>/dev/null; do
+    if [ -d "$dev" ]; then
+        # Set scheduler to none (NVMe drives handle their own queues)
+        echo "none" > "${dev}/queue/scheduler" 2>/dev/null || true
+        # Increase read-ahead to 4MB (8192 * 512b) for fast sequential model loads
+        echo 8192 > "${dev}/queue/read_ahead_kb" 2>/dev/null || true
+    fi
+done
+ok "NVMe I/O tuned (scheduler=none, read_ahead=4MB)"
 
 # ==============================================================================
 # Network: TCP tuning for API latency
@@ -118,8 +150,9 @@ echo ""
 echo -e "${GREEN}============================================================${NC}"
 echo -e "${GREEN} Host tuning complete. Changes are NOT persistent.${NC}"
 echo -e "${GREEN} To persist, add to /etc/sysctl.d/99-foundry.conf:${NC}"
-echo -e "${CYAN}   vm.swappiness = 10${NC}"
+echo -e "${CYAN}   vm.swappiness = 0${NC}"
 echo -e "${CYAN}   vm.overcommit_memory = 1${NC}"
+echo -e "${CYAN}   kernel.numa_balancing = 0${NC}"
 echo -e "${CYAN}   vm.dirty_ratio = 80${NC}"
 echo -e "${CYAN}   vm.dirty_background_ratio = 5${NC}"
 echo -e "${CYAN}   vm.nr_hugepages = ${TARGET_HUGEPAGES}${NC}"

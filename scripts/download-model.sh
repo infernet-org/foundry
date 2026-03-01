@@ -51,9 +51,9 @@ case "$MODEL" in
         FILENAME="Qwen3.5-35B-A3B-${QUANT}.gguf"
         ;;
     hermes-4.3-36b)
-        REPO="${REPO_OVERRIDE:-bartowski/NousResearch_Hermes-4.3-36B-GGUF}"
+        REPO="${REPO_OVERRIDE:-NousResearch/Hermes-4.3-36B-GGUF}"
         QUANT="${QUANT:-Q4_K_M}"
-        FILENAME="NousResearch_Hermes-4.3-36B-${QUANT}.gguf"
+        FILENAME="hermes-4_3_36b-${QUANT}.gguf"
         ;;
     *)
         echo "ERROR: Unknown model '${MODEL}'"
