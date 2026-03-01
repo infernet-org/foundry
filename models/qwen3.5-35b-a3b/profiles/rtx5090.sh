@@ -14,11 +14,11 @@
 #   Compute buffers:   3,944 MiB (CUDA) + 2,112 MiB (Host)
 #   Free headroom:    ~5,300 MiB
 #
-# Benchmarked on RTX 5090 (2026-02-27):
-#   Single-stream decode:  ~174 tok/s  (memory-bandwidth-bound @ 49% util)
-#   4-concurrent aggregate: ~320 tok/s (+84% via MoE expert batching)
+# Benchmarked on RTX 5090 (2026-03-01, native sm_120a, BLACKWELL_NATIVE_FP4=1):
+#   Single-stream decode:  ~181 tok/s  (memory-bandwidth-bound @ 49% util)
+#   4-concurrent aggregate: ~320 tok/s (+77% via MoE expert batching)
 #   Prompt processing:    ~1,163 tok/s (internal metric)
-#   GPU util: 92%  |  Power: 337W / 575W  |  Temp: 52C
+#   GPU util: 92%  |  Power: 312W / 575W  |  Temp: 52C
 #
 # Tested and rejected (no measurable impact on this memory-bound workload):
 #   --poll 100, --prio-batch 2, --flash-attn auto, nvidia-smi -lgc 3105
@@ -32,9 +32,9 @@ PROFILE_KV_TYPE_K="q8_0"        # KV cache key quantization
 PROFILE_KV_TYPE_V="q8_0"        # KV cache value quantization
 PROFILE_NO_MMAP="true"          # Avoid page faults, load model into RAM
 PROFILE_JINJA="true"            # Chat template / tool calling support
-PROFILE_PARALLEL=4              # 4 concurrent slots: +84% aggregate throughput via MoE batching
+PROFILE_PARALLEL=4              # 4 concurrent slots: +77% aggregate throughput via MoE batching
                                 # (CUDA graphs for MUL_MAT_ID at BS 1-4, PR #19645)
-                                # Single-stream decode unchanged at ~174 tok/s, only +840 MiB VRAM
+                                # Single-stream decode unchanged at ~181 tok/s, only +840 MiB VRAM
 PROFILE_PRIO=2                  # High thread priority for reduced scheduling latency
 PROFILE_CPU_STRICT=1            # Strict CPU placement for cache locality
 PROFILE_CACHE_REUSE=256         # KV cache reuse for multi-turn chat prefix sharing
