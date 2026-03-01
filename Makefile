@@ -21,6 +21,7 @@ help: ## Show this help
 # --- Build -------------------------------------------------------------------
 
 build: ## Build the model image
+	@cp scripts/entrypoint.sh models/$(MODEL)/entrypoint.sh
 	docker build \
 		-t $(MODEL_TAG):latest \
 		models/$(MODEL)/
@@ -106,7 +107,7 @@ test: ## Smoke test: start container, wait for health, send one request
 # --- Download ----------------------------------------------------------------
 
 download: ## Download the GGUF model file
-	./scripts/download-model.sh
+	./scripts/download-model.sh --model $(MODEL)
 
 # --- Benchmark ---------------------------------------------------------------
 

@@ -19,13 +19,17 @@ FROM ghcr.io/ggml-org/llama.cpp:server-cuda12
 # Install huggingface-hub for model download (~50MB layer)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 python3-pip \
-    && pip3 install --no-cache-dir "huggingface-hub>=0.28,<1" \
+    && pip3 install --no-cache-dir "huggingface-hub>=0.28,<1" "hf_transfer>=0.1.6" \
     && rm -rf /var/lib/apt/lists/*
 
 # Model metadata
 ENV FOUNDRY_MODEL_NAME="Qwen3.5-35B-A3B"
 ENV FOUNDRY_GGUF_REPO="unsloth/Qwen3.5-35B-A3B-GGUF"
 ENV FOUNDRY_GGUF_FILE="Qwen3.5-35B-A3B-UD-Q4_K_XL.gguf"
+ENV FOUNDRY_ARCH="moe"
+
+# Enable fast downloads
+ENV HF_HUB_ENABLE_HF_TRANSFER="1"
 
 # Runtime defaults (can be overridden)
 ENV FOUNDRY_PROFILE="auto"
@@ -34,7 +38,7 @@ ENV FOUNDRY_CTX_LENGTH=""
 ENV FOUNDRY_THREADS=""
 ENV FOUNDRY_EXTRA_ARGS=""
 
-# Copy profiles and entrypoint
+# Copy profiles and shared entrypoint
 COPY profiles/ /opt/foundry/profiles/
 COPY entrypoint.sh /opt/foundry/entrypoint.sh
 RUN chmod +x /opt/foundry/entrypoint.sh

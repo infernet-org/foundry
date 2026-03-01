@@ -45,15 +45,7 @@ Works with any OpenAI-compatible client: Cursor, Continue, OpenCode, Open WebUI,
 ### Hermes-4.3-36B (Dense)
 | GPU | VRAM | Context | Decode | 4-concurrent |
 |-----|------|---------|--------|--------------|
-| RTX 5090 | 32 GB | 32K | ~64.5 tok/s | ~132.0 tok/s |
-| Other NVIDIA (24GB+) | 24+ GB | 8K | varies | varies |
-
-*Benchmarked with `NousResearch/Hermes-4.3-36B` using `Q4_K_M` quantization.*
-
-### Hermes-4.3-36B (Dense)
-| GPU | VRAM | Context | Decode | 2-concurrent |
-|-----|------|---------|--------|--------------|
-| RTX 5090 | 32 GB | 32K | ~29 tok/s | ~54 tok/s |
+| RTX 5090 | 32 GB | 32K | ~64 tok/s | ~170 tok/s |
 | Other NVIDIA (24GB+) | 24+ GB | 8K | varies | varies |
 
 *Benchmarked with `NousResearch/Hermes-4.3-36B` using `Q4_K_M` quantization.*
@@ -86,7 +78,7 @@ docker run --gpus all -p 8080:8080 \
   ghcr.io/infernet-org/foundry/qwen3.5-35b-a3b:latest
 ```
 
-Available profiles: `rtx5090`, `default`
+Available profiles (per model): `rtx5090`, `default`
 
 ## Configuration
 
@@ -144,8 +136,11 @@ docker run --gpus '"device=1"' -p 8081:8080 -v ~/.cache/foundry:/models \
 ## Docker Compose
 
 ```bash
-# Basic
+# Basic (default: Qwen3.5-35B-A3B)
 docker compose up
+
+# Choose a different model
+FOUNDRY_MODEL=hermes-4.3-36b docker compose up
 
 # With explicit profile
 FOUNDRY_PROFILE=rtx5090 docker compose up
@@ -225,10 +220,11 @@ This tunes: `vm.swappiness`, `vm.overcommit_memory`, hugepages, TCP buffers, CPU
 ## Build From Source
 
 ```bash
-make build    # Build the model image
-make run      # Run with auto-detected GPU
-make test     # Smoke test: start, wait for health, send one request
-make download # Download the GGUF model file to ~/.cache/foundry
+make build                        # Build the default model image (qwen3.5-35b-a3b)
+make build MODEL=hermes-4.3-36b   # Build a different model
+make run                          # Run with auto-detected GPU
+make test                         # Smoke test: start, wait for health, send one request
+make download                     # Download the GGUF model file to ~/.cache/foundry
 ```
 
 ## Architecture
@@ -236,13 +232,20 @@ make download # Download the GGUF model file to ~/.cache/foundry
 ```
 foundry/
 ├── models/
-│   └── qwen3.5-35b-a3b/
+│   ├── qwen3.5-35b-a3b/
+│   │   ├── Dockerfile           # FROM llama.cpp:server-cuda12
+│   │   ├── entrypoint.sh        # Copied from scripts/entrypoint.sh at build time
+│   │   └── profiles/
+│   │       ├── rtx5090.sh       # 192K ctx, 4 slots, 320 tok/s aggregate
+│   │       └── default.sh       # 16K ctx, q4_0 KV, conservative
+│   └── hermes-4.3-36b/
 │       ├── Dockerfile           # FROM llama.cpp:server-cuda12
-│       ├── entrypoint.sh        # GPU detect, model download, launch
+│       ├── entrypoint.sh        # Copied from scripts/entrypoint.sh at build time
 │       └── profiles/
-│           ├── rtx5090.sh       # 192K ctx, 4 slots, 320 tok/s aggregate
-│           └── default.sh       # 16K ctx, q4_0 KV, conservative
+│           ├── rtx5090.sh       # 32K ctx, 4 slots, 170 tok/s aggregate
+│           └── default.sh       # 8K ctx, q8_0 KV, 24GB minimum
 ├── scripts/
+│   ├── entrypoint.sh            # Shared entrypoint for all models
 │   ├── benchmark.py             # Generation speed, prompt processing, throughput
 │   ├── optimize_5090.py         # Multi-config A/B testing harness
 │   ├── download-model.sh        # Download GGUF outside Docker

@@ -12,8 +12,8 @@
 #
 # Dense models are extremely memory bandwidth heavy.
 # Benchmarked on RTX 5090 (2026-03-01):
-#   Pure decode speed: ~64.5 tok/s (single-stream)
-#   4-concurrent agg:  ~132.0 tok/s
+#   Pure decode speed: ~64 tok/s (single-stream)
+#   4-concurrent agg:  ~170 tok/s
 # ==============================================================================
 
 PROFILE_CTX_LENGTH=32768        # 32K context -- safe for 32GB VRAM with 4 slots
@@ -24,7 +24,7 @@ PROFILE_KV_TYPE_K="q8_0"        # q8_0 empirically faster than q4_0 for dense ba
 PROFILE_KV_TYPE_V="q8_0"        
 PROFILE_NO_MMAP="true"          
 PROFILE_JINJA="true"            
-PROFILE_PARALLEL=4              # 4 slots yields 132 tok/s aggregate (sweet spot)
+PROFILE_PARALLEL=4              # 4 slots yields ~170 tok/s aggregate (sweet spot)
 PROFILE_PRIO=2                  
 PROFILE_CPU_STRICT=1            
 PROFILE_CACHE_REUSE=256         # Important for dense models reasoning/tool use

@@ -26,6 +26,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ENV FOUNDRY_MODEL_NAME="Hermes-4.3-36B"
 ENV FOUNDRY_GGUF_REPO="bartowski/NousResearch_Hermes-4.3-36B-GGUF"
 ENV FOUNDRY_GGUF_FILE="NousResearch_Hermes-4.3-36B-Q4_K_M.gguf"
+ENV FOUNDRY_ARCH="dense"
 
 # Enable fast downloads
 ENV HF_HUB_ENABLE_HF_TRANSFER="1"
@@ -37,7 +38,7 @@ ENV FOUNDRY_CTX_LENGTH=""
 ENV FOUNDRY_THREADS=""
 ENV FOUNDRY_EXTRA_ARGS=""
 
-# Copy profiles and entrypoint
+# Copy profiles and shared entrypoint
 COPY profiles/ /opt/foundry/profiles/
 COPY entrypoint.sh /opt/foundry/entrypoint.sh
 RUN chmod +x /opt/foundry/entrypoint.sh

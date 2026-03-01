@@ -1,10 +1,32 @@
 #!/bin/bash
 # ==============================================================================
-# Foundry Entrypoint
+# Foundry Entrypoint (shared across all models)
 # ==============================================================================
 # 1. Detect GPU and load hardware profile
 # 2. Download model if not present
-# 3. Launch llama-server with tuned parameters
+# 3. Apply architecture-aware tuning (MoE vs Dense)
+# 4. Launch llama-server with tuned parameters
+#
+# Model identity is set via Dockerfile ENV vars:
+#   FOUNDRY_MODEL_NAME   -- display name (e.g. "Qwen3.5-35B-A3B")
+#   FOUNDRY_GGUF_REPO    -- HuggingFace repo (e.g. "unsloth/Qwen3.5-35B-A3B-GGUF")
+#   FOUNDRY_GGUF_FILE    -- GGUF filename
+#   FOUNDRY_ARCH         -- architecture type: "moe" or "dense"
+#
+# Architecture-specific flags are applied automatically based on FOUNDRY_ARCH:
+#
+#   MoE (e.g. Qwen3.5-35B-A3B):
+#     --fit on         Expert offloading: spill inactive experts to CPU
+#
+#   Dense (e.g. Hermes-4.3-36B):
+#     (no --fit)       No experts to offload
+#
+# Model-specific quirks (e.g. --swa-full for hybrid attention, --cache-ram 0
+# for recurrent architectures) belong in PROFILE_EXTRA_ARGS, NOT in the arch
+# tier -- they are not universal to the architecture class.
+#
+# Hardware-specific tuning (context, threads, KV quant, slots) is set by
+# per-GPU profiles in /opt/foundry/profiles/*.sh.
 # ==============================================================================
 
 set -euo pipefail
@@ -135,15 +157,34 @@ hf_hub_download(
 # ==============================================================================
 # Build Launch Command
 # ==============================================================================
+# Flags are layered in three tiers:
+#   1. Architecture defaults (FOUNDRY_ARCH)  -- systematic, model-class level
+#   2. Hardware profile (PROFILE_*)          -- per-GPU tuning knobs
+#   3. User overrides (FOUNDRY_EXTRA_ARGS)   -- escape hatch, highest priority
 
 build_command() {
     local gguf_path="${MODELS_DIR}/${FOUNDRY_GGUF_FILE}"
+    local arch="${FOUNDRY_ARCH:-dense}"
 
     # Use a bash array to safely handle arguments with spaces
     local -a cmd=("/app/llama-server")
     cmd+=("--model" "${gguf_path}")
     cmd+=("--host" "0.0.0.0")
     cmd+=("--port" "${FOUNDRY_PORT:-8080}")
+
+    # --- Tier 1: Architecture-specific flags ----------------------------------
+    # These are determined by the model class, not by the GPU or user preference.
+
+    if [ "$arch" = "moe" ]; then
+        # MoE: enable expert offloading (spill inactive experts to CPU when VRAM
+        # is tight). On high-VRAM GPUs --fit keeps everything on GPU automatically.
+        cmd+=("--fit" "on")
+    fi
+    # Dense models: no --fit (no experts to offload).
+    # Model-specific flags (--swa-full, --cache-ram) go in PROFILE_EXTRA_ARGS.
+
+    # --- Tier 2: Hardware profile tuning --------------------------------------
+    # These come from the sourced profile .sh file and tune for the specific GPU.
 
     # Context length (env override > profile > default)
     local ctx="${FOUNDRY_CTX_LENGTH:-${PROFILE_CTX_LENGTH:-32768}}"
@@ -160,10 +201,6 @@ build_command() {
     if [ -n "$threads_batch" ]; then
         cmd+=("--threads-batch" "${threads_batch}")
     fi
-
-    # Fit mode (MoE expert offloading)
-    local fit="${PROFILE_FIT:-on}"
-    cmd+=("--fit" "${fit}")
 
     # Flash attention (new llama.cpp requires explicit on/off/auto value)
     local fa="${PROFILE_FLASH_ATTN:-on}"
@@ -221,7 +258,7 @@ build_command() {
         cmd+=(${PROFILE_EXTRA_ARGS})
     fi
 
-    # User extra args (highest priority override, split on spaces intentionally)
+    # --- Tier 3: User overrides -----------------------------------------------
     if [ -n "${FOUNDRY_EXTRA_ARGS:-}" ]; then
         # shellcheck disable=SC2206
         cmd+=(${FOUNDRY_EXTRA_ARGS})
@@ -244,6 +281,7 @@ main() {
     echo ""
 
     log "Model: ${FOUNDRY_MODEL_NAME}"
+    log "Architecture: ${FOUNDRY_ARCH:-dense}"
 
     # 1. Determine profile
     local profile

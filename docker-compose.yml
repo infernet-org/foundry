@@ -79,7 +79,9 @@ services:
       - prometheus-data:/prometheus
     networks:
       - monitoring
-    # depends_on removed so it starts regardless of which model profile is chosen
+    depends_on:
+      inference:
+        condition: service_started
 
   grafana:
     image: grafana/grafana:11.6.0
