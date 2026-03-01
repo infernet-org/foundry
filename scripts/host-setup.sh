@@ -104,14 +104,25 @@ done
 ok "NVMe I/O tuned (scheduler=none, read_ahead=4MB)"
 
 # ==============================================================================
-# Network: TCP tuning for API latency
+# Network: TCP tuning for ultra-low latency SSE streaming (API latency)
 # ==============================================================================
+# Enable BBR congestion control for smoother token streaming over WAN
+modprobe tcp_bbr 2>/dev/null || true
+sysctl -w net.core.default_qdisc=fq > /dev/null
+sysctl -w net.ipv4.tcp_congestion_control=bbr > /dev/null
+
+# Increase connection queues and buffers
 sysctl -w net.core.somaxconn=4096 > /dev/null
 sysctl -w net.ipv4.tcp_keepalive_time=60 > /dev/null
 sysctl -w net.core.rmem_max=16777216 > /dev/null
 sysctl -w net.core.wmem_max=16777216 > /dev/null
 sysctl -w net.ipv4.tcp_fastopen=3 > /dev/null
-ok "TCP tuning applied (somaxconn=4096, fastopen=3, buffers=16MB)"
+
+# Enable Busy Polling (reduces NIC-to-CPU interrupt latency by polling)
+sysctl -w net.core.busy_read=50 > /dev/null
+sysctl -w net.core.busy_poll=50 > /dev/null
+
+ok "TCP tuned: BBR enabled, buffers=16MB, busy_polling=50us"
 
 # ==============================================================================
 # PCIe: Disable Active State Power Management (ASPM) for MoE routing latency
@@ -175,6 +186,10 @@ echo -e "${CYAN}   net.core.somaxconn = 4096${NC}"
 echo -e "${CYAN}   net.core.rmem_max = 16777216${NC}"
 echo -e "${CYAN}   net.core.wmem_max = 16777216${NC}"
 echo -e "${CYAN}   net.ipv4.tcp_fastopen = 3${NC}"
+echo -e "${CYAN}   net.core.default_qdisc = fq${NC}"
+echo -e "${CYAN}   net.ipv4.tcp_congestion_control = bbr${NC}"
+echo -e "${CYAN}   net.core.busy_read = 50${NC}"
+echo -e "${CYAN}   net.core.busy_poll = 50${NC}"
 echo ""
 echo -e "${YELLOW} ADVANCED MoE/Blackwell TUNING (Requires GRUB reboot):${NC}"
 echo -e "${CYAN} To completely isolate CPU cores for instant MoE expert routing, append this to GRUB_CMDLINE_LINUX:${NC}"
