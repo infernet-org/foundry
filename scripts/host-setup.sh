@@ -93,7 +93,7 @@ fi
 # ==============================================================================
 # I/O: Optimize NVMe for model loading
 # ==============================================================================
-for dev in /sys/block/nvme* 2>/dev/null; do
+for dev in /sys/block/nvme*; do
     if [ -d "$dev" ]; then
         # Set scheduler to none (NVMe drives handle their own queues)
         echo "none" > "${dev}/queue/scheduler" 2>/dev/null || true
