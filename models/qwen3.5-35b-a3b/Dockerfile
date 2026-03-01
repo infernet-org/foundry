@@ -40,7 +40,7 @@ RUN cmake -B build \
 # ------------------------------------------------------------------------------
 FROM ubuntu:24.04
 
-# Install minimal runtime dependencies (CUDA runtime libs are mounted by nvidia-container-runtime)
+# Install minimal runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgomp1 \
     python3 python3-pip curl \
@@ -71,7 +71,13 @@ ENV FOUNDRY_EXTRA_ARGS=""
 # With GGML_BACKEND_DL=ON, backends (ggml-cuda, ggml-cpu-*) are .so modules
 # loaded at runtime via dlopen. CMake places everything in build/bin/.
 COPY --from=builder /llama.cpp/build/bin/ /app/
-ENV LD_LIBRARY_PATH="/app:/usr/local/cuda/lib64:/usr/lib/x86_64-linux-gnu"
+
+# Cherry-pick only the CUDA runtime libs that libggml-cuda.so actually needs.
+# libcuda.so.1 is provided by the NVIDIA container runtime at launch.
+COPY --from=builder /usr/local/cuda/lib64/libcudart.so.12 /app/
+COPY --from=builder /usr/local/cuda/lib64/libcublas.so.12 /app/
+COPY --from=builder /usr/local/cuda/lib64/libcublasLt.so.12 /app/
+ENV LD_LIBRARY_PATH="/app"
 
 # Copy profiles and shared entrypoint
 COPY profiles/ /opt/foundry/profiles/
