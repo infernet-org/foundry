@@ -42,6 +42,22 @@ Works with any OpenAI-compatible client: Cursor, Continue, OpenCode, Open WebUI,
 
 *Benchmarked with `Qwen3.5-35B-A3B` using `UD-Q4_K_XL` quantization (Unsloth Dynamic 2.0).*
 
+### Hermes-4.3-36B (Dense)
+| GPU | VRAM | Context | Decode | 4-concurrent |
+|-----|------|---------|--------|--------------|
+| RTX 5090 | 32 GB | 32K | ~64.5 tok/s | ~132.0 tok/s |
+| Other NVIDIA (24GB+) | 24+ GB | 8K | varies | varies |
+
+*Benchmarked with `NousResearch/Hermes-4.3-36B` using `Q4_K_M` quantization.*
+
+### Hermes-4.3-36B (Dense)
+| GPU | VRAM | Context | Decode | 2-concurrent |
+|-----|------|---------|--------|--------------|
+| RTX 5090 | 32 GB | 32K | ~29 tok/s | ~54 tok/s |
+| Other NVIDIA (24GB+) | 24+ GB | 8K | varies | varies |
+
+*Benchmarked with `NousResearch/Hermes-4.3-36B` using `Q4_K_M` quantization.*
+
 ## How It Works
 
 Foundry uses [llama.cpp](https://github.com/ggml-org/llama.cpp) as the inference engine, built on the official [`server-cuda12`](https://github.com/ggml-org/llama.cpp/pkgs/container/llama.cpp) image.
@@ -269,6 +285,16 @@ python3 scripts/benchmark.py --url http://localhost:8080 --mode all
 - **Disk size**: ~20.6 GB
 - **Min VRAM**: 16 GB (with expert offloading)
 - **Max context**: 262K native, 192K default on RTX 5090
+
+### Hermes-4.3-36B
+
+- **Architecture**: Dense (36B total, all 36B active per token)
+  - ByteDance Seed-OSS-36B architecture
+  - Standard attention (GQA 80:8)
+- **Quantization**: Q4_K_M via [bartowski](https://huggingface.co/bartowski/NousResearch_Hermes-4.3-36B-GGUF)
+- **Disk size**: ~21.8 GB
+- **Min VRAM**: 24 GB (dense models cannot effectively offload experts)
+- **Max context**: 512K native, 32K default on RTX 5090
 
 ## License
 

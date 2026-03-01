@@ -10,7 +10,7 @@ scrape_configs:
   # llama-server inference metrics (/metrics endpoint, enabled via --metrics)
   - job_name: llama-server
     static_configs:
-      - targets: ["qwen3.5-35b-a3b:8080"]
+      - targets: ["inference:8080"]
     metrics_path: /metrics
     scrape_interval: 15s
 

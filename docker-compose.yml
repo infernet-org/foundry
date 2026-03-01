@@ -1,8 +1,11 @@
 # ==============================================================================
 # Foundry: Docker Compose
 # ==============================================================================
-# Quick start:
+# Quick start (uses default Qwen3.5 MoE model):
 #   docker compose up
+#
+# Choose a different model:
+#   FOUNDRY_MODEL=hermes-4.3-36b docker compose up
 #
 # With monitoring (Prometheus + Grafana + GPU metrics):
 #   docker compose --profile monitoring up
@@ -18,10 +21,10 @@ services:
   # ============================================================================
   # Inference Server
   # ============================================================================
-  qwen3.5-35b-a3b:
-    image: ghcr.io/infernet-org/foundry/qwen3.5-35b-a3b:latest
+  inference:
+    image: ghcr.io/infernet-org/foundry/${FOUNDRY_MODEL:-qwen3.5-35b-a3b}:latest
     build:
-      context: models/qwen3.5-35b-a3b/
+      context: models/${FOUNDRY_MODEL:-qwen3.5-35b-a3b}/
     ports:
       - "${FOUNDRY_PORT:-8080}:8080"
     volumes:
@@ -76,9 +79,7 @@ services:
       - prometheus-data:/prometheus
     networks:
       - monitoring
-    depends_on:
-      qwen3.5-35b-a3b:
-        condition: service_started
+    # depends_on removed so it starts regardless of which model profile is chosen
 
   grafana:
     image: grafana/grafana:11.6.0
