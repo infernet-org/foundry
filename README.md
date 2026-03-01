@@ -37,7 +37,7 @@ Works with any OpenAI-compatible client: Cursor, Continue, OpenCode, Open WebUI,
 
 | GPU | VRAM | Context | Decode | 4-concurrent |
 |-----|------|---------|--------|--------------|
-| RTX 5090 | 32 GB | 192K | ~174 tok/s | ~320 tok/s |
+| RTX 5090 | 32 GB | 192K | ~181 tok/s | ~320 tok/s |
 | Other NVIDIA (16GB+) | 16+ GB | 16K | varies | varies |
 
 *Benchmarked with `Qwen3.5-35B-A3B` using `UD-Q4_K_XL` quantization (Unsloth Dynamic 2.0).*
@@ -45,14 +45,14 @@ Works with any OpenAI-compatible client: Cursor, Continue, OpenCode, Open WebUI,
 ### Hermes-4.3-36B (Dense)
 | GPU | VRAM | Context | Decode | 4-concurrent |
 |-----|------|---------|--------|--------------|
-| RTX 5090 | 32 GB | 32K | ~64 tok/s | ~170 tok/s |
+| RTX 5090 | 32 GB | 32K | ~64 tok/s | ~132 tok/s |
 | Other NVIDIA (24GB+) | 24+ GB | 8K | varies | varies |
 
 *Benchmarked with `NousResearch/Hermes-4.3-36B` using `Q4_K_M` quantization.*
 
 ## How It Works
 
-Foundry uses [llama.cpp](https://github.com/ggml-org/llama.cpp) as the inference engine, built on the official [`server-cuda12`](https://github.com/ggml-org/llama.cpp/pkgs/container/llama.cpp) image.
+Foundry uses [llama.cpp](https://github.com/ggml-org/llama.cpp) as the inference engine, compiled from source for native sm_89 (Ada) and sm_120a (Blackwell) GPU architectures.
 
 Why not SGLang or vLLM? For **consumer GPUs**, llama.cpp's MoE expert offloading (`--fit on`) is the only engine that can run a 35B-parameter MoE model on a single 16-24GB card at full speed. SGLang and vLLM require the entire model to fit in VRAM.
 
@@ -105,7 +105,7 @@ Qwen3.5-35B-A3B uses a 256-expert Mixture-of-Experts architecture with only 8 ex
 
 | Active agents | Aggregate throughput | Per-agent speed | VRAM |
 |---------------|---------------------|-----------------|------|
-| 1 | 174 tok/s | 174 tok/s | 25.3 GB |
+| 1 | 181 tok/s | 181 tok/s | 25.3 GB |
 | 2 | 234 tok/s | ~117 tok/s each | 25.7 GB |
 | 4 | 320 tok/s | ~80 tok/s each | 26.1 GB |
 
@@ -233,16 +233,16 @@ make download                     # Download the GGUF model file to ~/.cache/fou
 foundry/
 ├── models/
 │   ├── qwen3.5-35b-a3b/
-│   │   ├── Dockerfile           # FROM llama.cpp:server-cuda12
+│   │   ├── Dockerfile           # Multi-stage: compiles llama.cpp for sm_89+sm_120a
 │   │   ├── entrypoint.sh        # Copied from scripts/entrypoint.sh at build time
 │   │   └── profiles/
 │   │       ├── rtx5090.sh       # 192K ctx, 4 slots, 320 tok/s aggregate
 │   │       └── default.sh       # 16K ctx, q4_0 KV, conservative
 │   └── hermes-4.3-36b/
-│       ├── Dockerfile           # FROM llama.cpp:server-cuda12
+│       ├── Dockerfile           # Multi-stage: compiles llama.cpp for sm_89+sm_120a
 │       ├── entrypoint.sh        # Copied from scripts/entrypoint.sh at build time
 │       └── profiles/
-│           ├── rtx5090.sh       # 32K ctx, 4 slots, 170 tok/s aggregate
+│           ├── rtx5090.sh       # 32K ctx, 4 slots, 132 tok/s aggregate
 │           └── default.sh       # 8K ctx, q8_0 KV, 24GB minimum
 ├── scripts/
 │   ├── entrypoint.sh            # Shared entrypoint for all models
@@ -260,8 +260,8 @@ foundry/
 RTX 5090 profile results (Qwen3.5-35B-A3B UD-Q4_K_XL, 192K context, 4 slots):
 
 ```
-SINGLE-STREAM DECODE:    ~174 tok/s
-4-CONCURRENT AGGREGATE:  ~320 tok/s  (+84% via MoE expert batching)
+SINGLE-STREAM DECODE:    ~181 tok/s
+4-CONCURRENT AGGREGATE:  ~320 tok/s  (+77% via MoE expert batching)
 PROMPT PROCESSING:     ~1,163 tok/s  (internal metric)
 GPU UTILIZATION:            92%
 MEMORY BANDWIDTH:           49%      (bottleneck: 878 / 1,792 GB/s)
@@ -294,7 +294,7 @@ python3 scripts/benchmark.py --url http://localhost:8080 --mode all
 - **Architecture**: Dense (36B total, all 36B active per token)
   - ByteDance Seed-OSS-36B architecture
   - Standard attention (GQA 80:8)
-- **Quantization**: Q4_K_M via [bartowski](https://huggingface.co/bartowski/NousResearch_Hermes-4.3-36B-GGUF)
+- **Quantization**: Q4_K_M via [NousResearch](https://huggingface.co/NousResearch/Hermes-4.3-36B-GGUF)
 - **Disk size**: ~21.8 GB
 - **Min VRAM**: 24 GB (dense models cannot effectively offload experts)
 - **Max context**: 512K native, 32K default on RTX 5090
