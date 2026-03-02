@@ -12,8 +12,8 @@ MODELS_DIR ?= $(HOME)/.cache/foundry
 .PHONY: help build run run-profile test benchmark monitoring down push push-all clean clean-models download
 
 help: ## Show this help
-	@echo "Available models: qwen3.5-35b-a3b (default), hermes-4.3-36b"
-	@echo "Usage: make run MODEL=hermes-4.3-36b"
+	@echo "Available models: qwen3.5-35b-a3b (default), qwen3-coder-30b-a3b, hermes-4.3-36b"
+	@echo "Usage: make run MODEL=qwen3-coder-30b-a3b"
 	@echo ""
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
