@@ -38,9 +38,9 @@ services:
   # Prometheus (Scrapes metrics)
   # ============================================================================
   inference:
-    image: ghcr.io/infernet-org/foundry/${FOUNDRY_MODEL:-qwen3.5-35b-a3b}:latest
+    image: ghcr.io/infernet-org/foundry/${FOUNDRY_MODEL:-qwen3.5-9b}:latest
     build:
-      context: models/${FOUNDRY_MODEL:-qwen3.5-35b-a3b}/
+      context: models/${FOUNDRY_MODEL:-qwen3.5-9b}/
     ports:
       - "${FOUNDRY_PORT:-8080}:8080"
     volumes:

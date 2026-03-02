@@ -20,7 +20,7 @@ jobs:
 
     strategy:
       matrix:
-        model: [qwen3.5-35b-a3b, qwen3-coder-30b-a3b, hermes-4.3-36b]
+        model: [qwen3.5-9b, qwen3.5-35b-a3b, qwen3-coder-30b-a3b, hermes-4.3-36b]
 
     steps:
       - name: Checkout

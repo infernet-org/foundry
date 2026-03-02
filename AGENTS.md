@@ -49,8 +49,8 @@ No API key is required by default. If your client demands one, any non-empty str
       "url": "http://localhost:8080/v1",
       "models": {
         "qwen": {
-          "id": "qwen3.5-35b-a3b",
-          "name": "Qwen 3.5 35B A3B"
+          "id": "qwen3.5-9b",
+          "name": "Qwen 3.5 9B"
         },
         "qwen-coder": {
           "id": "qwen3-coder-30b-a3b",
@@ -69,7 +69,7 @@ Settings > Models > OpenAI API Base:
 ```
 Base URL: http://localhost:8080/v1
 API Key:  sk-local
-Model:    qwen3.5-35b-a3b
+Model:    qwen3.5-9b
 ```
 
 Cursor uses streaming by default. Foundry supports SSE streaming natively. With multiple parallel slots, you can run Cursor's background indexing and active chat simultaneously without blocking.
@@ -83,7 +83,7 @@ Cursor uses streaming by default. Foundry supports SSE streaming natively. With 
     {
       "title": "Foundry Qwen",
       "provider": "openai",
-      "model": "qwen3.5-35b-a3b",
+      "model": "qwen3.5-9b",
       "apiBase": "http://localhost:8080/v1",
       "apiKey": "sk-local"
     }
@@ -96,7 +96,7 @@ Cursor uses streaming by default. Foundry supports SSE streaming natively. With 
 ```bash
 aider --openai-api-base http://localhost:8080/v1 \
       --openai-api-key sk-local \
-      --model openai/qwen3.5-35b-a3b
+      --model openai/qwen3.5-9b
 ```
 
 Or set environment variables:
@@ -104,7 +104,7 @@ Or set environment variables:
 ```bash
 export OPENAI_API_BASE=http://localhost:8080/v1
 export OPENAI_API_KEY=sk-local
-aider --model openai/qwen3.5-35b-a3b
+aider --model openai/qwen3.5-9b
 ```
 
 ### Cline (VS Code)
@@ -114,7 +114,7 @@ Settings > Cline > API Provider: OpenAI Compatible
 ```
 Base URL: http://localhost:8080/v1
 API Key:  sk-local
-Model ID: qwen3.5-35b-a3b
+Model ID: qwen3.5-9b
 ```
 
 ## Multi-Agent Frameworks
@@ -127,7 +127,7 @@ Foundry's parallel inference slots make it particularly suited for multi-agent w
 import os
 os.environ["OPENAI_API_BASE"] = "http://localhost:8080/v1"
 os.environ["OPENAI_API_KEY"] = "sk-local"
-os.environ["OPENAI_MODEL_NAME"] = "qwen3.5-35b-a3b"
+os.environ["OPENAI_MODEL_NAME"] = "qwen3.5-9b"
 
 from crewai import Agent, Task, Crew
 
@@ -175,7 +175,7 @@ from autogen import AssistantAgent, UserProxyAgent
 
 config_list = [
     {
-        "model": "qwen3.5-35b-a3b",
+        "model": "qwen3.5-9b",
         "base_url": "http://localhost:8080/v1",
         "api_key": "sk-local",
     }
@@ -206,7 +206,7 @@ from langchain_openai import ChatOpenAI
 llm = ChatOpenAI(
     base_url="http://localhost:8080/v1",
     api_key="sk-local",
-    model="qwen3.5-35b-a3b",
+    model="qwen3.5-9b",
     streaming=True,
 )
 
@@ -220,7 +220,7 @@ print(response.content)
 from smolagents import ToolCallingAgent, OpenAIServerModel
 
 model = OpenAIServerModel(
-    model_id="qwen3.5-35b-a3b",
+    model_id="qwen3.5-9b",
     api_base="http://localhost:8080/v1",
     api_key="sk-local",
 )
@@ -259,7 +259,7 @@ Settings > API > Chat Completion (OpenAI):
 ```
 API URL:     http://localhost:8080
 API Key:     sk-local
-Model:       qwen3.5-35b-a3b
+Model:       qwen3.5-9b
 ```
 
 ## Direct API Usage
@@ -275,7 +275,7 @@ client = OpenAI(
 )
 
 response = client.chat.completions.create(
-    model="qwen3.5-35b-a3b",
+    model="qwen3.5-9b",
     messages=[
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hello!"},
@@ -291,7 +291,7 @@ print(response.choices[0].message.content)
 curl http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "qwen3.5-35b-a3b",
+    "model": "qwen3.5-9b",
     "messages": [{"role": "user", "content": "Hello!"}],
     "max_tokens": 256
   }'
@@ -308,7 +308,7 @@ const client = new OpenAI({
 });
 
 const response = await client.chat.completions.create({
-  model: "qwen3.5-35b-a3b",
+  model: "qwen3.5-9b",
   messages: [{ role: "user", content: "Hello!" }],
 });
 
@@ -321,12 +321,12 @@ console.log(response.choices[0].message.content);
 |----------|-------------------|-----|
 | **Coding agents** (OpenCode, Cursor, Aider) | Qwen3-Coder-30B-A3B | Fastest decode (275 tok/s), purpose-built for code, tool calling support |
 | **Multi-agent orchestration** (CrewAI, AutoGen) | Qwen3-Coder-30B-A3B | 3-concurrent at 497 tok/s aggregate, best MoE batching efficiency |
-| **General coding + long context** | Qwen3.5-35B-A3B | 192K effective context for large codebases, hybrid recurrent architecture |
-| **Reasoning-heavy tasks** | Hermes-4.3-36B | Thinking mode with `<think>` tags, stronger reasoning on hard problems |
+| **General reasoning + long context** | Qwen3.5-9B | 262K context per slot (1M total), thinking mode, best benchmark quality across GPQA/HMMT/TAU2 |
+| **Reasoning-heavy tasks** | Qwen3.5-9B | Thinking mode with `reasoning_content` field, 81.7 GPQA Diamond, 83.2 HMMT |
 | **Tool use / function calling** | Qwen3-Coder-30B-A3B or Hermes-4.3-36B | Both have strong tool calling; Coder is 4x faster, Hermes more reliable on complex schemas |
 | **Roleplay / creative writing** | Hermes-4.3-36B | NousResearch fine-tune optimized for personality and narrative |
-| **Long document Q&A** | Qwen3.5-35B-A3B | 192K context window, recurrent layers handle long sequences efficiently |
-| **16 GB VRAM GPUs** | Qwen3-Coder-30B-A3B | Smallest disk footprint (17.7 GB), MoE expert offloading works on 16 GB |
+| **Long document Q&A** | Qwen3.5-9B | 262K context per slot, recurrent layers handle long sequences efficiently |
+| **8 GB VRAM GPUs** | Qwen3.5-9B | Smallest disk footprint (5.66 GB), runs on 8 GB cards with reduced context |
 
 ## Performance Considerations
 
@@ -337,14 +337,14 @@ Single-stream decode latency (time to generate one token):
 | Model | Latency per token | Tokens per second |
 |-------|-------------------|-------------------|
 | Qwen3-Coder-30B-A3B | ~3.6 ms | ~275 tok/s |
-| Qwen3.5-35B-A3B | ~5.5 ms | ~181 tok/s |
+| Qwen3.5-9B | ~5.7 ms | ~177 tok/s |
 | Hermes-4.3-36B | ~15.5 ms | ~64 tok/s |
 
-For interactive coding agents, Qwen3-Coder delivers the fastest typing experience. Qwen3.5 trades some speed for 192K effective context. For batch/background tasks where latency is less critical, Hermes' stronger reasoning may be worth the tradeoff.
+For interactive coding agents, Qwen3-Coder delivers the fastest typing experience. Qwen3.5-9B trades some speed for full 262K context and superior reasoning quality. For batch/background tasks where latency is less critical, Hermes' roleplay and creative strengths may be worth the tradeoff.
 
 ### Prompt processing
 
-Prompt processing (prefill) runs at ~1,163 tok/s for Qwen on RTX 5090. A 10K token prompt takes ~8.6 seconds to process. Keep system prompts concise to minimize time-to-first-token.
+Prompt processing (prefill) runs at ~1,688 tok/s for Qwen3.5-9B on RTX 5090. A 10K token prompt takes ~5.9 seconds to process. Keep system prompts concise to minimize time-to-first-token.
 
 ### Concurrent agent scaling
 
@@ -355,11 +355,10 @@ Qwen3-Coder-30B-A3B (fastest, 3 slots):
 3 agents: 497 tok/s  (~168 tok/s each, 61% per-agent)
 ```
 
-Qwen3.5-35B-A3B (4 slots):
+Qwen3.5-9B (4 slots, dense):
 ```
-1 agent:  181 tok/s  (100% per-agent speed)
-2 agents: 234 tok/s  (~117 tok/s each, 65% per-agent)
-4 agents: 320 tok/s  (~80 tok/s each, 44% per-agent)
+1 agent:  177 tok/s  (100% per-agent speed)
+4 agents: 423 tok/s  (~106 tok/s each, 60% per-agent)
 ```
 
 If your workflow has more concurrent agents than slots, requests queue until a slot is free. Consider multi-GPU routing (below) for higher concurrency.
@@ -370,8 +369,8 @@ VRAM scales with context usage. The default RTX 5090 profiles are tuned for maxi
 
 | Model | Default context | VRAM at idle | VRAM at full context |
 |-------|----------------|--------------|---------------------|
+| Qwen3.5-9B | 1M (262K/slot) | 5.7 GB | ~29.5 GB |
 | Qwen3-Coder-30B-A3B | 192K | 25.0 GB | ~28.9 GB |
-| Qwen3.5-35B-A3B | 192K | 25.3 GB | ~26.1 GB |
 | Hermes-4.3-36B | 32K | 24.5 GB | ~27.8 GB |
 
 To reduce VRAM usage, lower the context window:
@@ -380,7 +379,7 @@ To reduce VRAM usage, lower the context window:
 docker run --gpus all -p 8080:8080 \
   -v ~/.cache/foundry:/models \
   -e FOUNDRY_CTX_LENGTH=32768 \
-  ghcr.io/infernet-org/foundry/qwen3.5-35b-a3b:latest
+  ghcr.io/infernet-org/foundry/qwen3.5-9b:latest
 ```
 
 ## Structured Output
@@ -389,7 +388,7 @@ All three models support JSON mode for structured outputs:
 
 ```python
 response = client.chat.completions.create(
-    model="qwen3.5-35b-a3b",
+    model="qwen3.5-9b",
     messages=[{
         "role": "user",
         "content": "List 3 programming languages with their year of creation. Respond in JSON."
@@ -404,7 +403,7 @@ For grammar-constrained generation (guaranteed schema compliance), use the `gram
 curl http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "qwen3.5-35b-a3b",
+    "model": "qwen3.5-9b",
     "messages": [{"role": "user", "content": "Generate a person record"}],
     "response_format": {
       "type": "json_schema",
@@ -430,7 +429,7 @@ Hermes-4.3-36B is specifically trained for tool calling with `<tool_call>` XML f
 
 ```python
 response = client.chat.completions.create(
-    model="qwen3.5-35b-a3b",
+    model="qwen3.5-9b",
     messages=[{"role": "user", "content": "What's the weather in Tokyo?"}],
     tools=[{
         "type": "function",
@@ -459,13 +458,13 @@ All models support Jinja chat templates for tool calling. The entrypoint enables
 
 ## Thinking / Reasoning Mode
 
-Qwen3.5-35B-A3B supports a thinking mode where it shows its reasoning process in `<think>` tags before answering.
+Qwen3.5-9B supports a thinking mode where it shows its reasoning process in `<think>` tags before answering.
 
 The server returns thinking content in the `reasoning_content` field:
 
 ```python
 response = client.chat.completions.create(
-    model="qwen3.5-35b-a3b",
+    model="qwen3.5-9b",
     messages=[{"role": "user", "content": "What is 127 * 389?"}],
     max_tokens=512,
 )
@@ -484,7 +483,7 @@ All endpoints support Server-Sent Events (SSE) streaming for real-time token del
 
 ```python
 stream = client.chat.completions.create(
-    model="qwen3.5-35b-a3b",
+    model="qwen3.5-9b",
     messages=[{"role": "user", "content": "Write a poem about GPUs."}],
     stream=True,
 )
@@ -557,7 +556,7 @@ If you see `no devices with dedicated memory found` in the logs, the CUDA backen
 ### Connection refused
 
 1. Container might still be loading the model. Check `docker logs <container>` for progress.
-2. First run downloads the model (~20 GB) which can take several minutes.
+2. First run downloads the model (6-22 GB depending on model) which can take several minutes.
 3. Port conflict: use `-p 8081:8080` to map to a different host port.
 
 ### Out of VRAM
@@ -568,10 +567,10 @@ Reduce context window or switch to a smaller quantization:
 docker run --gpus all -p 8080:8080 \
   -v ~/.cache/foundry:/models \
   -e FOUNDRY_CTX_LENGTH=16384 \
-  ghcr.io/infernet-org/foundry/qwen3.5-35b-a3b:latest
+  ghcr.io/infernet-org/foundry/qwen3.5-9b:latest
 ```
 
-For GPUs with less than 24 GB VRAM, use Qwen (MoE) -- its expert offloading can spill inactive experts to CPU.
+For GPUs with less than 16 GB VRAM, use Qwen3.5-9B (only 5.66 GB model weight). For 16+ GB, Qwen3-Coder-30B-A3B's MoE expert offloading can spill inactive experts to CPU.
 
 ### Inconsistent response speeds
 
