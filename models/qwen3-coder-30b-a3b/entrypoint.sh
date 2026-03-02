@@ -118,7 +118,7 @@ download_model() {
 
     log "Model not found at ${gguf_path}"
     log "Downloading ${FOUNDRY_GGUF_FILE} from ${FOUNDRY_GGUF_REPO}..."
-    log "This is a one-time download (~20GB). Subsequent starts will be instant."
+    log "This is a one-time download. Subsequent starts will be instant."
     echo ""
 
     # Use python3 huggingface_hub to download (huggingface-cli may not be on PATH)

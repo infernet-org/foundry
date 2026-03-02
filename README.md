@@ -22,10 +22,10 @@ Foundry compiles [llama.cpp](https://github.com/ggml-org/llama.cpp) from source 
 ```bash
 docker run --gpus all -p 8080:8080 \
   -v ~/.cache/foundry:/models \
-  ghcr.io/infernet-org/foundry/qwen3.5-35b-a3b:latest
+  ghcr.io/infernet-org/foundry/qwen3.5-9b:latest
 ```
 
-The first run downloads the model (~20 GB). Subsequent starts are instant.
+The first run downloads the model (~6 GB). Subsequent starts are instant.
 
 Then use it like any OpenAI-compatible API:
 
@@ -33,7 +33,7 @@ Then use it like any OpenAI-compatible API:
 curl http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "qwen3.5-35b-a3b",
+    "model": "qwen3.5-9b",
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
 ```
@@ -42,36 +42,39 @@ Works with any OpenAI-compatible client: Cursor, Continue, OpenCode, Open WebUI,
 
 ## Models
 
-### Qwen3.5-35B-A3B (MoE)
+### Qwen3.5-9B (Dense)
 
-Hybrid Gated DeltaNet + Mixture-of-Experts. 35B total parameters, only 3B active per token.
+Hybrid Gated DeltaNet + Dense FFN. 9B total parameters, all active per token. Qwen3.5 generation with vision-language capability.
 
-- 30 recurrent layers (Gated DeltaNet -- fixed-size state, no KV cache)
-- 10 full attention layers (standard KV cache, GQA 8:1)
-- 256 experts per MoE layer, top-8 + 1 shared active per token
-- Quantization: UD-Q4_K_XL via [Unsloth](https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF) (Dynamic 2.0)
-- Disk: ~20.6 GB | Min VRAM: 16 GB (with expert offloading) | Max context: 262K native
+- 32 layers: 24 Gated DeltaNet (recurrent) + 8 full attention (GQA 16:4)
+- All 9B parameters active per token (dense, compute-bound)
+- Thinking mode by default (reasoning_content field)
+- Quantization: UD-Q4_K_XL via [Unsloth](https://huggingface.co/unsloth/Qwen3.5-9B-GGUF) (Dynamic 2.0)
+- Disk: ~5.66 GB | Min VRAM: 8 GB | Max context: 262K native (1M with YaRN)
 
 | GPU | VRAM | Context | Decode | 4-concurrent | VRAM used |
 |-----|------|---------|--------|--------------|-----------|
-| RTX 5090 | 32 GB | 192K | ~181 tok/s | ~320 tok/s | 26.1 GB |
-| Other NVIDIA (16 GB+) | 16+ GB | 16K | varies | varies | varies |
+| RTX 5090 | 32 GB | 262K/slot | ~177 tok/s | ~423 tok/s | 29.5 GB |
+| Other NVIDIA (8 GB+) | 8+ GB | 32K/slot | varies | varies | varies |
 
 <details>
 <summary>RTX 5090 detailed benchmark</summary>
 
 ```
-SINGLE-STREAM DECODE:    ~181 tok/s
-4-CONCURRENT AGGREGATE:  ~320 tok/s  (+77% via MoE expert batching)
-PROMPT PROCESSING:     ~1,163 tok/s  (internal metric)
-GPU UTILIZATION:            92%
-MEMORY BANDWIDTH:           49%      (bottleneck: 878 / 1,792 GB/s)
-POWER DRAW:                312W / 575W TDP
-TEMPERATURE:                52C      (under sustained load)
-VRAM USAGE:              26.1 GB / 32.6 GB (6 GB headroom)
+SINGLE-STREAM DECODE:    ~177 tok/s  (compute-bound, 94% SM utilization)
+4-CONCURRENT AGGREGATE:  ~423 tok/s
+4-CONCURRENT PER-SLOT:   ~106 tok/s  each
+PROMPT PROCESSING:     ~1,688 tok/s
+GPU UTILIZATION:        94% SM / 65% mem (single) | 100% SM / 63% mem (4-concurrent)
+POWER DRAW:             312W single, 445W 4-concurrent
+TEMPERATURE:            52-60C (under sustained load)
+VRAM USAGE:             29.5 GB / 32.6 GB (2.6 GB headroom)
+CONTEXT:                262K per slot (4 slots, 1M total)
 ```
 
-Benchmarked 2026-03-01 with native sm_120a (Blackwell) compilation and `BLACKWELL_NATIVE_FP4=1` enabled.
+Benchmarked 2026-03-02 with native sm_120a (Blackwell) compilation and `BLACKWELL_NATIVE_FP4=1` enabled.
+
+**Why this replaces Qwen3.5-35B-A3B**: Newer Qwen3.5 generation model that outperforms the 35B-A3B on every benchmark -- agent tasks (+37 TAU2-Bench), math (+20 HMMT), reasoning (+8 GPQA), instruction following (+13 IFBench). At 5.66 GB it uses 1/4 the VRAM, enabling full 262K context per slot (vs 48K for the 35B). Internal `--parallel 4` batching provides 2.6x more throughput than running multiple instances (tested with eBPF telemetry: dense model is compute-bound at 94% SM utilization, not memory-bandwidth-bound).
 </details>
 
 ### Hermes-4.3-36B (Dense)
@@ -120,14 +123,14 @@ Benchmarked 2026-03-02 with native sm_120a (Blackwell) compilation and `BLACKWEL
 
 **Why 3 slots (not 4)?** With 3 slots, `--fit on` allocates 64K context per slot instead of 48K. Aggregate throughput is identical (497 vs 495 tok/s), but per-agent speed under load is 35% faster (168 vs 124 tok/s). The 4th slot rarely matters for a single-GPU workstation. Override with `FOUNDRY_EXTRA_ARGS="--parallel 4"` if needed.
 
-**vs Qwen3.5-35B-A3B**: 52% faster single-stream, 55% faster aggregate. The standard MoE architecture (no DeltaNet recurrent layers) batches more efficiently on Blackwell. Trades the 192K effective context of Qwen3.5 for raw speed.
+**vs Qwen3.5-9B**: 52% faster single-stream, 18% faster aggregate. The standard MoE architecture (no DeltaNet recurrent layers) batches more efficiently on Blackwell. Trades the 262K context of Qwen3.5 for raw speed.
 </details>
 
 ## How It Works
 
-Why llama.cpp and not SGLang or vLLM? For **consumer GPUs**, llama.cpp's MoE expert offloading (`--fit on`) is the only engine that can run a 35B-parameter MoE model on a single 16-24 GB card at full speed. SGLang and vLLM require the entire model to fit in VRAM.
+Why llama.cpp and not SGLang or vLLM? For **consumer GPUs**, llama.cpp's MoE expert offloading (`--fit on`) is the only engine that can run a 30B-parameter MoE model on a single 16-24 GB card at full speed. SGLang and vLLM require the entire model to fit in VRAM.
 
-Qwen3.5-35B-A3B keeps attention layers on GPU while spilling inactive experts to CPU, which is why a 35B MoE runs **faster** than a 27B dense model on the same hardware.
+Qwen3-Coder-30B-A3B keeps attention layers on GPU while spilling inactive experts to CPU, which is why a 30B MoE runs **faster** than a 9B dense model on the same hardware (275 vs 177 tok/s).
 
 ### GPU Auto-Detection
 
@@ -146,7 +149,7 @@ Each profile tunes: context length, KV cache quantization, thread count, batch s
 docker run --gpus all -p 8080:8080 \
   -v ~/.cache/foundry:/models \
   -e FOUNDRY_PROFILE=rtx5090 \
-  ghcr.io/infernet-org/foundry/qwen3.5-35b-a3b:latest
+  ghcr.io/infernet-org/foundry/qwen3.5-9b:latest
 ```
 
 Available profiles (per model): `rtx5090`, `default`
@@ -177,22 +180,22 @@ All settings can be overridden via environment variables:
 
 ## Multi-Agent Inference
 
-The RTX 5090 profiles are configured with multiple concurrent inference slots: `--parallel 4` for Qwen3.5 and Hermes, `--parallel 3` for Qwen3-Coder. This makes Foundry well-suited for multi-agent workflows where several AI agents share a single GPU.
+The RTX 5090 profiles are configured with multiple concurrent inference slots: `--parallel 4` for Qwen3.5-9B and Hermes, `--parallel 3` for Qwen3-Coder. This makes Foundry well-suited for multi-agent workflows where several AI agents share a single GPU.
 
 ### Why MoE batching works
 
-Qwen3.5-35B-A3B uses a 256-expert MoE architecture with only 8 experts active per token. During single-stream decode, the GPU's tensor cores are largely idle -- the bottleneck is memory bandwidth, not compute. When multiple agents send concurrent requests, llama.cpp batches token generation across all active slots. Different tokens may route to different experts, and CUDA graphs capture the entire batched MoE operation, significantly improving GPU utilization.
+Qwen3-Coder-30B-A3B uses a 128-expert MoE architecture with only 8 experts active per token. During single-stream decode, the GPU's tensor cores are largely idle -- the bottleneck is memory bandwidth, not compute. When multiple agents send concurrent requests, llama.cpp batches token generation across all active slots. Different tokens may route to different experts, and CUDA graphs capture the entire batched MoE operation, significantly improving GPU utilization.
 
 ### Throughput scaling
 
-Measured on RTX 5090 with Qwen models (MoE):
+Measured on RTX 5090:
 
-| Active agents | Qwen3.5-35B-A3B (4 slots) | Qwen3-Coder-30B-A3B (3 slots) |
-|---------------|----------------------------|--------------------------------|
-| 1 | 181 tok/s | 275 tok/s |
-| 2 | 234 tok/s (117 each) | 405 tok/s (204 each) |
+| Active agents | Qwen3.5-9B (4 slots, dense) | Qwen3-Coder-30B-A3B (3 slots, MoE) |
+|---------------|------------------------------|--------------------------------------|
+| 1 | 177 tok/s | 275 tok/s |
+| 2 | — | 405 tok/s (204 each) |
 | 3 | — | 497 tok/s (168 each) |
-| 4 | 320 tok/s (80 each) | — |
+| 4 | 423 tok/s (106 each) | — |
 
 Single-agent speed is unaffected. Concurrent slots only activate when there are simultaneous requests.
 
@@ -219,7 +222,7 @@ Any OpenAI-compatible agent framework works out of the box -- point it at `http:
 ### Docker Compose
 
 ```bash
-# Default: Qwen3.5-35B-A3B
+# Default: Qwen3.5-9B
 docker compose up
 
 # Choose a different model
@@ -244,7 +247,7 @@ GF_ADMIN_PASSWORD=admin
 ### Build From Source
 
 ```bash
-make build                        # Build the default model image (qwen3.5-35b-a3b)
+make build                        # Build the default model image (qwen3.5-9b)
 make build MODEL=hermes-4.3-36b   # Build a different model
 make build MODEL=qwen3-coder-30b-a3b  # Build the coding-optimized model
 make run                          # Run with auto-detected GPU
@@ -365,12 +368,16 @@ This reduced p99 latency jitter from ~5.8 tok/s spread to ~2.2 tok/s spread in o
 ```
 foundry/
 ├── models/
-│   ├── qwen3.5-35b-a3b/
+│   ├── qwen3.5-9b/
 │   │   ├── Dockerfile               # Multi-stage: compiles llama.cpp for sm_89 + sm_120a
 │   │   ├── entrypoint.sh            # Copied from scripts/entrypoint.sh at build time
 │   │   └── profiles/
-│   │       ├── rtx5090.sh           # 192K ctx, 4 slots, ~320 tok/s aggregate
-│   │       └── default.sh           # 16K ctx, conservative settings
+│   │       ├── rtx5090.sh           # 1M ctx, 4 slots, ~423 tok/s aggregate, 262K/slot
+│   │       └── default.sh           # 32K ctx, 8 GB minimum
+│   ├── qwen3.5-35b-a3b/            # Legacy: still available, superseded by qwen3.5-9b
+│   │   ├── Dockerfile
+│   │   ├── entrypoint.sh
+│   │   └── profiles/
 │   ├── hermes-4.3-36b/
 │   │   ├── Dockerfile               # Multi-stage: compiles llama.cpp for sm_89 + sm_120a
 │   │   ├── entrypoint.sh            # Copied from scripts/entrypoint.sh at build time

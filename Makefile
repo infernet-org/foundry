@@ -4,7 +4,7 @@
 
 REGISTRY ?= ghcr.io/infernet-org/foundry
 # Default model (can be overridden: make run MODEL=hermes-4.3-36b)
-MODEL ?= qwen3.5-35b-a3b
+MODEL ?= qwen3.5-9b
 MODEL_TAG ?= $(REGISTRY)/$(MODEL)
 PORT ?= 8080
 MODELS_DIR ?= $(HOME)/.cache/foundry
@@ -12,7 +12,7 @@ MODELS_DIR ?= $(HOME)/.cache/foundry
 .PHONY: help build run run-profile test benchmark monitoring down push push-all clean clean-models download
 
 help: ## Show this help
-	@echo "Available models: qwen3.5-35b-a3b (default), qwen3-coder-30b-a3b, hermes-4.3-36b"
+	@echo "Available models: qwen3.5-9b (default), qwen3-coder-30b-a3b, hermes-4.3-36b, qwen3.5-35b-a3b"
 	@echo "Usage: make run MODEL=qwen3-coder-30b-a3b"
 	@echo ""
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
