@@ -22,4 +22,4 @@ PROFILE_CPU_STRICT=0
 PROFILE_CACHE_REUSE=0           # Disabled: hybrid recurrent arch re-processes anyway
 PROFILE_NO_WEBUI="false"        # Keep web UI for exploration
 PROFILE_METRICS="false"
-PROFILE_EXTRA_ARGS="--swa-full --cache-ram 0"
+PROFILE_EXTRA_ARGS="--swa-full --cache-ram 0 --reasoning-format none"

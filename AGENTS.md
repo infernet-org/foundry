@@ -37,30 +37,39 @@ No API key is required by default. If your client demands one, any non-empty str
 
 ### OpenCode
 
-[OpenCode](https://opencode.ai) connects directly via OpenAI-compatible providers.
+[OpenCode](https://opencode.ai) connects via the `@ai-sdk/openai-compatible` provider.
+
+> **Important:** Use `@ai-sdk/openai-compatible`, not `@ai-sdk/openai`. The latter crashes on
+> models that emit `<think>` tokens (see [Troubleshooting](TROUBLESHOOTING.md#opencode-text-part-msg-not-found)).
 
 ```json
-// ~/.config/opencode/config.json
+// opencode.json (project root or ~/.config/opencode/opencode.json)
 {
+  "$schema": "https://opencode.ai/config.json",
+  "model": "foundry/Qwen3.5-9B-UD-Q4_K_XL.gguf",
   "provider": {
     "foundry": {
+      "npm": "@ai-sdk/openai-compatible",
       "name": "Foundry",
-      "type": "openai",
-      "url": "http://localhost:8080/v1",
+      "options": {
+        "baseURL": "http://localhost:8080/v1",
+        "apiKey": "sk-local"
+      },
       "models": {
-        "qwen": {
-          "id": "qwen3.5-9b",
-          "name": "Qwen 3.5 9B"
-        },
-        "qwen-coder": {
-          "id": "qwen3-coder-30b-a3b",
-          "name": "Qwen 3 Coder 30B A3B"
+        "Qwen3.5-9B-UD-Q4_K_XL.gguf": {
+          "name": "Qwen 3.5 9B",
+          "limit": {
+            "context": 262144,
+            "output": 32768
+          }
         }
       }
     }
   }
 }
 ```
+
+The model ID must match what `/v1/models` returns (check with `curl http://localhost:8080/v1/models`).
 
 ### Cursor
 
@@ -493,7 +502,7 @@ for chunk in stream:
         print(chunk.choices[0].delta.content, end="", flush=True)
 ```
 
-The Docker Compose configuration includes TCP tuning (BBR congestion control, busy polling) for minimal streaming latency. Time-to-first-token is typically ~50-200 ms depending on prompt length.
+The host tuning script (`sudo ./scripts/host-setup.sh`) configures BBR congestion control and busy polling for minimal streaming latency. Time-to-first-token is typically ~50-200 ms depending on prompt length.
 
 ## Multi-GPU Agent Routing
 
@@ -539,6 +548,10 @@ def get_client(agent_id: int) -> OpenAI:
 
 ## Troubleshooting
 
+For a comprehensive troubleshooting guide, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+
+Quick reference for the most common issues:
+
 ### Model loads on CPU instead of GPU
 
 If you see `no devices with dedicated memory found` in the logs, the CUDA backend failed to load. Check:
@@ -552,6 +565,10 @@ If you see `no devices with dedicated memory found` in the logs, the CUDA backen
 1. Check if all layers are on GPU: look for `offloaded N/N layers to GPU` in container logs
 2. Check VRAM: `nvidia-smi` -- if VRAM is full, reduce context with `FOUNDRY_CTX_LENGTH`
 3. Check if all slots are occupied: `curl http://localhost:8080/metrics | grep slots`
+
+### OpenCode: "text part msg_... not found"
+
+Use `@ai-sdk/openai-compatible` (not `@ai-sdk/openai`) and ensure the server has `--reasoning-format none`. See [TROUBLESHOOTING.md](TROUBLESHOOTING.md#opencode-text-part-msg-not-found) for details.
 
 ### Connection refused
 
@@ -571,12 +588,3 @@ docker run --gpus all -p 8080:8080 \
 ```
 
 For GPUs with less than 16 GB VRAM, use Qwen3.5-9B (only 5.66 GB model weight). For 16+ GB, Qwen3-Coder-30B-A3B's MoE expert offloading can spill inactive experts to CPU.
-
-### Inconsistent response speeds
-
-If response speed varies between requests, check for:
-
-1. **Prompt cache misses**: First message in a conversation is always slower (prompt processing)
-2. **Concurrent slot contention**: Other agents may be using slots simultaneously
-3. **GPU thermal throttling**: Check `nvidia-smi -q -d PERFORMANCE` for throttle reasons
-4. **CPU interrupt interference**: Pin GPU IRQs to dedicated cores (see README Host Tuning section)

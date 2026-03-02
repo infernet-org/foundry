@@ -103,6 +103,68 @@ load_profile() {
 }
 
 # ==============================================================================
+# Pre-flight Host Check
+# ==============================================================================
+# Checks host kernel parameters visible via /proc/sys/ and warns about
+# suboptimal settings that affect inference performance. Does NOT block startup.
+#
+# These parameters are set by: sudo ./scripts/host-setup.sh
+
+preflight_check() {
+    local warnings=0
+
+    # Helper: check a sysctl value and warn if it doesn't match
+    check_sysctl() {
+        local path="$1" expected="$2" label="$3" fix="$4"
+        local actual
+        if [ -f "$path" ]; then
+            actual=$(cat "$path" 2>/dev/null)
+            if [ "$actual" != "$expected" ]; then
+                warn "  $label = $actual (expected: $expected) -- $fix"
+                warnings=$((warnings + 1))
+            fi
+        fi
+    }
+
+    log "Checking host kernel parameters..."
+
+    # TCP congestion control (BBR reduces streaming latency)
+    check_sysctl /proc/sys/net/ipv4/tcp_congestion_control "bbr" \
+        "tcp_congestion_control" "BBR reduces token streaming latency"
+
+    # NUMA balancing (causes random latency spikes during decode)
+    check_sysctl /proc/sys/kernel/numa_balancing "0" \
+        "numa_balancing" "page migration causes decode latency jitter"
+
+    # Swappiness (model weights should stay in RAM)
+    local swappiness
+    swappiness=$(cat /proc/sys/vm/swappiness 2>/dev/null)
+    if [ -n "$swappiness" ] && [ "$swappiness" -gt 10 ]; then
+        warn "  vm.swappiness = $swappiness (expected: 0-10) -- high swappiness may evict model weights"
+        warnings=$((warnings + 1))
+    fi
+
+    # GPU persistence mode
+    if command -v nvidia-smi &> /dev/null; then
+        local pm
+        pm=$(nvidia-smi --query-gpu=persistence_mode --format=csv,noheader,nounits 2>/dev/null | head -1 | xargs)
+        if [ "$pm" = "Disabled" ]; then
+            warn "  GPU persistence mode = Disabled -- adds 100-500ms cold start latency"
+            warnings=$((warnings + 1))
+        fi
+    fi
+
+    if [ "$warnings" -gt 0 ]; then
+        warn ""
+        warn "  $warnings performance issue(s) detected. Run on the host:"
+        warn "    sudo ./scripts/host-setup.sh"
+        warn ""
+    else
+        log "Host kernel parameters: OK"
+    fi
+}
+
+# ==============================================================================
 # Model Download
 # ==============================================================================
 
@@ -294,10 +356,13 @@ main() {
     # 2. Load profile
     load_profile "$profile"
 
-    # 3. Download model if needed
+    # 3. Pre-flight host check (warns about suboptimal kernel params)
+    preflight_check
+
+    # 4. Download model if needed
     download_model
 
-    # 4. Build launch command (sets FOUNDRY_CMD array directly, no subshell)
+    # 5. Build launch command (sets FOUNDRY_CMD array directly, no subshell)
     build_command
 
     echo ""
@@ -308,7 +373,7 @@ main() {
     echo -e "${GREEN}  http://localhost:${FOUNDRY_PORT:-8080}/v1/chat/completions${NC}"
     echo ""
 
-    # 5. Launch (exec replaces shell process for proper signal handling)
+    # 6. Launch (exec replaces shell process for proper signal handling)
     # Use the array form to avoid word-splitting issues
     exec "${FOUNDRY_CMD[@]}"
 }

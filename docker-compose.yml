@@ -60,22 +60,20 @@ services:
               count: 1
               capabilities: [gpu]
     shm_size: '2gb'
+    # NOTE: Network tuning (BBR, busy_poll) and memory locking are applied at the
+    # host level by scripts/host-setup.sh. Run it once before deploying:
+    #   sudo ./scripts/host-setup.sh
+    # Container-level sysctls for these are omitted because they fail on rootless
+    # Docker and are less effective than host-level settings.
     sysctls:
       - net.core.somaxconn=4096
       - net.ipv4.tcp_keepalive_time=60
-      - net.ipv4.tcp_congestion_control=bbr
-      - net.core.busy_read=50
-      - net.core.busy_poll=50
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 10s
       timeout: 5s
       retries: 5
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
     networks:
       - default
       - monitoring
@@ -88,8 +86,6 @@ services:
     image: prom/prometheus:latest
     profiles:
       - monitoring
-    volumes:
-      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:

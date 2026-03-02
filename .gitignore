@@ -39,3 +39,9 @@ Thumbs.db
 # Benchmark results (keep structure, ignore large outputs)
 benchmarks/results/*.json
 !benchmarks/results/.gitkeep
+
+# OpenCode (user-specific local config at project root)
+/opencode.json
+
+# Build artifacts
+remote-build.log
