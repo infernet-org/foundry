@@ -51,4 +51,6 @@ PROFILE_METRICS="true"          # Prometheus-compatible /metrics endpoint
 # --mlock: pin model in RAM; -b/-ub 4096: large batch for fast prompt encode
 # --swa-full: full SWA cache for hybrid attention models (DeltaNet + attention)
 # --cache-ram 0: disable prompt cache (hybrid recurrent arch forces re-processing)
-PROFILE_EXTRA_ARGS="--mlock -b 4096 -ub 4096 --swa-full --cache-ram 0"
+# --reasoning-format none: keep <think> tags as plain text in content, no reasoning_content field
+#   (prevents AI SDK extractReasoningMiddleware crash on empty think blocks)
+PROFILE_EXTRA_ARGS="--mlock -b 4096 -ub 4096 --swa-full --cache-ram 0 --reasoning-format none"
