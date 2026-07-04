@@ -182,6 +182,12 @@ build_command() {
     cmd+=("--served-model-name" "qwen3.6-35b-a3b-nvfp4")
     cmd+=("--quantization" "modelopt")
     cmd+=("--reasoning-parser" "qwen3")
+    # Tool calling on by default -- foundry serves coding agents, and agent
+    # frameworks (mini-SWE-agent, OpenHands, ...) send tool_choice=auto, which
+    # vLLM rejects unless a parser is enabled. Qwen3.x emits XML-style
+    # <function=...><parameter=...> tool_call blocks.
+    cmd+=("--enable-auto-tool-choice")
+    cmd+=("--tool-call-parser" "qwen3_xml")
 
     # --- Tier 2: Hardware profile tuning ----------------------------------------
 

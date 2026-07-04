@@ -17,6 +17,7 @@ LITELLM_MODEL_REGISTRY_PATH="$REG" MSWEA_COST_TRACKING=ignore_errors \
   --subset verified --split test --shuffle --slice "$SLICE" \
   -m "$MODEL" \
   -c swebench.yaml \
+  -c environment.pull_timeout=1800 \
   -c "model.model_kwargs.api_base=$BASE_URL" \
   -c "model.model_kwargs.api_key=dummy" \
   -w 4 -o "$OUT"
