@@ -57,6 +57,9 @@ Costs 2 minutes -- rerun after any config change.
 | HumanEval+ (extra tests) | **88.4%** | ~85-89% | PASS |
 
 ```bash
+# Gate 2 requires a thinking-off serving config (evalplus caps generation at
+# 768 tokens; thinking would consume the budget and return null content):
+FOUNDRY_EXTRA_ARGS='--default-chat-template-kwargs {"enable_thinking":false}' make run
 ./scripts/eval/run-evalplus.sh gate2
 ```
 

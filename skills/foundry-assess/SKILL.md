@@ -10,7 +10,9 @@ bottom of that file (venv + aider clone under `$FAP_EVAL_HOME`, default
 `~/.cache/foundry/eval`).
 
 ## Gate 2 — fidelity (ALWAYS after config changes; ~2 min)
+Requires a thinking-off serving config (the runner probes and tells you if not):
 ```bash
+FOUNDRY_EXTRA_ARGS='--default-chat-template-kwargs {"enable_thinking":false}' make run
 ./scripts/eval/run-evalplus.sh mytag
 ```
 Pass: HumanEval+ pass@1 in the 85-89% band. A drop means the serving stack

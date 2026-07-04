@@ -64,6 +64,7 @@ run-profile: ## Run with explicit profile (PROFILE=rtx5090)
 test: ## Smoke test: start container, wait for health, send one request
 	@echo "Starting container..."
 	@mkdir -p $(MODELS_DIR)
+	@docker rm -f foundry-test-$(MODEL) 2>/dev/null || true
 	@docker run -d $(DOCKER_RUN_FLAGS) \
 		--name foundry-test-$(MODEL) \
 		$(MODEL_TAG):latest
@@ -84,7 +85,7 @@ test: ## Smoke test: start container, wait for health, send one request
 	@echo "Sending test request..."
 	@curl -s http://localhost:$(PORT)/v1/chat/completions \
 		-H "Content-Type: application/json" \
-		-d '{"model":"$(MODEL)","messages":[{"role":"user","content":"Say hello in one sentence."}],"max_tokens":64}' \
+		-d '{"model":"$(MODEL)","messages":[{"role":"user","content":"Say hello in one sentence."}],"max_tokens":64,"chat_template_kwargs":{"enable_thinking":false}}' \
 		| python3 -m json.tool
 	@echo ""
 	@echo "Test passed. Cleaning up..."
