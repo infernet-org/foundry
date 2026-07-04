@@ -83,7 +83,7 @@ Settings > Models > OpenAI API Base:
 ```
 Base URL: http://localhost:8080/v1
 API Key:  sk-local
-Model:    qwen3.5-9b
+Model:    qwen3.6-35b-a3b-nvfp4
 ```
 
 Cursor uses streaming by default. Foundry supports SSE streaming natively. vLLM's continuous batching runs Cursor's background indexing and active chat simultaneously without blocking.
@@ -97,7 +97,7 @@ Cursor uses streaming by default. Foundry supports SSE streaming natively. vLLM'
     {
       "title": "Foundry Qwen",
       "provider": "openai",
-      "model": "qwen3.5-9b",
+      "model": "qwen3.6-35b-a3b-nvfp4",
       "apiBase": "http://localhost:8080/v1",
       "apiKey": "sk-local"
     }
@@ -110,7 +110,7 @@ Cursor uses streaming by default. Foundry supports SSE streaming natively. vLLM'
 ```bash
 aider --openai-api-base http://localhost:8080/v1 \
       --openai-api-key sk-local \
-      --model openai/qwen3.5-9b
+      --model openai/qwen3.6-35b-a3b-nvfp4
 ```
 
 Or set environment variables:
@@ -118,7 +118,7 @@ Or set environment variables:
 ```bash
 export OPENAI_API_BASE=http://localhost:8080/v1
 export OPENAI_API_KEY=sk-local
-aider --model openai/qwen3.5-9b
+aider --model openai/qwen3.6-35b-a3b-nvfp4
 ```
 
 ### Cline (VS Code)
@@ -128,7 +128,7 @@ Settings > Cline > API Provider: OpenAI Compatible
 ```
 Base URL: http://localhost:8080/v1
 API Key:  sk-local
-Model ID: qwen3.5-9b
+Model ID: qwen3.6-35b-a3b-nvfp4
 ```
 
 ## Multi-Agent Frameworks
@@ -141,7 +141,7 @@ vLLM's continuous batching makes Foundry particularly suited for multi-agent wor
 import os
 os.environ["OPENAI_API_BASE"] = "http://localhost:8080/v1"
 os.environ["OPENAI_API_KEY"] = "sk-local"
-os.environ["OPENAI_MODEL_NAME"] = "qwen3.5-9b"
+os.environ["OPENAI_MODEL_NAME"] = "qwen3.6-35b-a3b-nvfp4"
 
 from crewai import Agent, Task, Crew
 
@@ -189,7 +189,7 @@ from autogen import AssistantAgent, UserProxyAgent
 
 config_list = [
     {
-        "model": "qwen3.5-9b",
+        "model": "qwen3.6-35b-a3b-nvfp4",
         "base_url": "http://localhost:8080/v1",
         "api_key": "sk-local",
     }
@@ -220,7 +220,7 @@ from langchain_openai import ChatOpenAI
 llm = ChatOpenAI(
     base_url="http://localhost:8080/v1",
     api_key="sk-local",
-    model="qwen3.5-9b",
+    model="qwen3.6-35b-a3b-nvfp4",
     streaming=True,
 )
 
@@ -234,7 +234,7 @@ print(response.content)
 from smolagents import ToolCallingAgent, OpenAIServerModel
 
 model = OpenAIServerModel(
-    model_id="qwen3.5-9b",
+    model_id="qwen3.6-35b-a3b-nvfp4",
     api_base="http://localhost:8080/v1",
     api_key="sk-local",
 )
@@ -273,7 +273,7 @@ Settings > API > Chat Completion (OpenAI):
 ```
 API URL:     http://localhost:8080
 API Key:     sk-local
-Model:       qwen3.5-9b
+Model:       qwen3.6-35b-a3b-nvfp4
 ```
 
 ## Direct API Usage
@@ -289,7 +289,7 @@ client = OpenAI(
 )
 
 response = client.chat.completions.create(
-    model="qwen3.5-9b",
+    model="qwen3.6-35b-a3b-nvfp4",
     messages=[
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hello!"},
@@ -305,7 +305,7 @@ print(response.choices[0].message.content)
 curl http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "qwen3.5-9b",
+    "model": "qwen3.6-35b-a3b-nvfp4",
     "messages": [{"role": "user", "content": "Hello!"}],
     "max_tokens": 256
   }'
@@ -322,7 +322,7 @@ const client = new OpenAI({
 });
 
 const response = await client.chat.completions.create({
-  model: "qwen3.5-9b",
+  model: "qwen3.6-35b-a3b-nvfp4",
   messages: [{ role: "user", content: "Hello!" }],
 });
 
@@ -331,8 +331,6 @@ console.log(response.choices[0].message.content);
 
 ## Choosing a Model
 
-| Use case | Recommended model | Why |
-|----------|-------------------|-----|
 Foundry ships one model: **qwen3.6-35b-a3b-nvfp4** (MoE, ~3B active). It covers coding agents, multi-agent orchestration, tool calling, and long-context work (224K) in a single deployment; thinking mode (`reasoning_content`) is available per request for reasoning-heavy tasks.
 
 ## Performance Considerations
@@ -373,16 +371,16 @@ To reduce VRAM usage, lower the context window:
 docker run --gpus all -p 8080:8080 \
   -v ~/.cache/foundry:/models \
   -e FOUNDRY_CTX_LENGTH=32768 \
-  ghcr.io/infernet-org/foundry/qwen3.5-9b:latest
+  ghcr.io/infernet-org/foundry/qwen3.6-35b-a3b-nvfp4:latest
 ```
 
 ## Structured Output
 
-All three models support JSON mode for structured outputs:
+The model supports JSON mode for structured outputs:
 
 ```python
 response = client.chat.completions.create(
-    model="qwen3.5-9b",
+    model="qwen3.6-35b-a3b-nvfp4",
     messages=[{
         "role": "user",
         "content": "List 3 programming languages with their year of creation. Respond in JSON."
@@ -397,7 +395,7 @@ For grammar-constrained generation (guaranteed schema compliance), use the `gram
 curl http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "qwen3.5-9b",
+    "model": "qwen3.6-35b-a3b-nvfp4",
     "messages": [{"role": "user", "content": "Generate a person record"}],
     "response_format": {
       "type": "json_schema",
@@ -423,7 +421,7 @@ Qwen3.6 supports tool calling via its chat template (`--jinja`-style templating 
 
 ```python
 response = client.chat.completions.create(
-    model="qwen3.5-9b",
+    model="qwen3.6-35b-a3b-nvfp4",
     messages=[{"role": "user", "content": "What's the weather in Tokyo?"}],
     tools=[{
         "type": "function",
@@ -458,7 +456,7 @@ The server returns thinking content in the `reasoning_content` field:
 
 ```python
 response = client.chat.completions.create(
-    model="qwen3.5-9b",
+    model="qwen3.6-35b-a3b-nvfp4",
     messages=[{"role": "user", "content": "What is 127 * 389?"}],
     max_tokens=512,
 )
@@ -475,7 +473,7 @@ All endpoints support Server-Sent Events (SSE) streaming for real-time token del
 
 ```python
 stream = client.chat.completions.create(
-    model="qwen3.5-9b",
+    model="qwen3.6-35b-a3b-nvfp4",
     messages=[{"role": "user", "content": "Write a poem about GPUs."}],
     stream=True,
 )
@@ -556,18 +554,18 @@ Use `@ai-sdk/openai-compatible` (not `@ai-sdk/openai`) and ensure the server has
 ### Connection refused
 
 1. Container might still be loading the model. Check `docker logs <container>` for progress.
-2. First run downloads the model (6-22 GB depending on model) which can take several minutes.
+2. First run downloads the model (~22 GB), then startup takes 2-4 minutes (weight load + CUDA graph capture).
 3. Port conflict: use `-p 8081:8080` to map to a different host port.
 
 ### Out of VRAM
 
-Reduce context window or switch to a smaller quantization:
+Reduce the context window:
 
 ```bash
 docker run --gpus all -p 8080:8080 \
   -v ~/.cache/foundry:/models \
   -e FOUNDRY_CTX_LENGTH=16384 \
-  ghcr.io/infernet-org/foundry/qwen3.5-9b:latest
+  ghcr.io/infernet-org/foundry/qwen3.6-35b-a3b-nvfp4:latest
 ```
 
 This model requires an NVFP4-capable GPU (Blackwell RTX 50xx or Hopper) with 32 GB+ VRAM; there is no smaller variant in this repo.

@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# FAP Gate 3a: Coding capability + token efficiency (Aider polyglot, 225 tasks)
+# FAP Gate 4a: Coding capability + token efficiency (Aider polyglot, 225 tasks)
 # ==============================================================================
 # Requires: aider repo + polyglot-benchmark cloned, aider-benchmark image built
 # (see EVALUATION.md). Rootless-docker aware: talks to the serving container

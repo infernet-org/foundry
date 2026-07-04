@@ -75,7 +75,7 @@ Hybrid Gated DeltaNet + MoE, Qwen3.6 generation. 35B total parameters, ~3B activ
 | RTX 5090 | 32 GB | 224K | ~384 tok/s | ~1,228 tok/s | 29.0 GB |
 | Other NVFP4-capable (32 GB+) | 32+ GB | 32K | varies | varies | varies |
 
-The RTX 5090 numbers use **MTP x4 self-speculative decoding** (the checkpoint ships its own draft head) + async scheduling -- 1.9x single-stream and 2.3x concurrent over the plain configuration. To trade speed for the full 262K context, edit `PROFILE_EXTRA_ARGS` in the profile (drop `--speculative-config`) and raise `PROFILE_CTX_LENGTH` -- `FOUNDRY_EXTRA_ARGS` appends flags and cannot remove them.
+The RTX 5090 numbers use **MTP x4 self-speculative decoding** (the checkpoint ships its own draft head) + async scheduling -- 1.9x single-stream and 2.3x concurrent over the plain configuration. To trade speed for the full 262K context, edit `PROFILE_EXTRA_ARGS` in the profile (drop `--speculative-config`), raise `PROFILE_CTX_LENGTH`, and `make build` (profiles are baked into the image) -- `FOUNDRY_EXTRA_ARGS` appends flags and cannot remove them.
 
 Sweep record and per-config numbers: [EVALUATION.md](EVALUATION.md).
 

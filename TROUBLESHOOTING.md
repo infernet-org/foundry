@@ -97,7 +97,7 @@ docker inspect --format='{{.State.OOMKilled}}' foundry-inference-1
 
    ```bash
    FOUNDRY_CTX_LENGTH=131072 make run       # smaller KV allocation
-   # or edit PROFILE_MAX_NUM_SEQS / PROFILE_GPU_MEM_UTIL in the profile
+   # or edit PROFILE_MAX_NUM_SEQS / PROFILE_GPU_MEM_UTIL in the profile, then `make build` (profiles are baked into the image)
    ```
 
 ### "CUDA out of memory" in logs
@@ -357,7 +357,7 @@ export OPENAI_API_KEY=sk-local
 **Diagnosis:**
 ```bash
 # Check Prometheus targets
-curl -s http://localhost:9090/api/v1/targets | python3 -m json.tool | grep -E '"health"|"lastError"'
+curl -s http://localhost:9091/api/v1/targets | python3 -m json.tool | grep -E '"health"|"lastError"'
 ```
 
 **Fix:**
@@ -368,7 +368,7 @@ curl -s http://localhost:9090/api/v1/targets | python3 -m json.tool | grep -E '"
    ```
 3. Check that `monitoring/prometheus/prometheus.yml` has correct scrape targets.
 
-**Verify:** Prometheus targets page at `http://localhost:9090/targets` should show all targets as "UP".
+**Verify:** Prometheus targets page at `http://localhost:9091/targets` should show all targets as "UP".
 
 ---
 

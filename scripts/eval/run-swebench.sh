@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# FAP Gate 3b: Agentic SWE capability (SWE-bench Verified via mini-SWE-agent)
+# FAP Gate 4b: Agentic SWE capability (SWE-bench Verified via mini-SWE-agent)
 # ==============================================================================
 # Token-efficiency trick: litellm registry prices output at 1e-6/token, so
 # instance_cost * 1e6 = exact output tokens per task.

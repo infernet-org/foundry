@@ -20,7 +20,7 @@ Pass: HumanEval+ pass@1 in the 85-89% band. A drop means the serving stack
 ```bash
 ./scripts/eval/run-aider.sh myrun
 ```
-Reference: 50.2% pass@2 thinking-off (~3.1K tok/case); 61.2% thinking-on (~13.4K tok/case).
+Reference: 50.2% pass@2 thinking-off (~3.1K tok/case); 61.2% thinking-on (partial run, ~13.4K tok/case) -- see EVALUATION.md Gate 4a.
 
 ## Gate 4b — agentic SWE (~2-3 h for a 50-slice)
 ```bash

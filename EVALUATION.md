@@ -90,12 +90,12 @@ cross-checked against our Gate-2 result. Pass: >=99% preservation.
 
 Coding-assistant behavior with per-task token accounting -- FAP's
 token-efficiency instrument. Run thinking off vs on for the
-pass-rate-per-token frontier.
+pass-rate-per-token frontier: thinking bought **+11 pts pass@2 for 4.3x the tokens**.
 
 | Configuration | pass@2 | pass@1 | Well-formed | Completion tokens | Wall clock |
 |---------------|--------|--------|-------------|-------------------|------------|
 | Thinking OFF | **50.2%** | 25.8% | 94.7% | 697K (~3.1K/case) | ~29 min |
-| Thinking ON | *(in progress)* | | | | |
+| Thinking ON (partial: 206/225, run stopped) | **61.2%** | 34.0% | 99.0% | 2.75M (~13.4K/case) | ~40 s/case |
 
 ```bash
 ./scripts/eval/run-aider.sh gate4a
@@ -109,7 +109,7 @@ DeepSWE / Qwen / GLM numbers. The minimal bash-only scaffold measures the
 `instance_cost * 1e6` = exact output tokens per task -> **tokens per solved
 issue**.
 
-*(50-instance seeded slice in progress.)*
+*(Not yet run for this deployment -- harness is prepped; run the seeded slice below to fill this gate.)*
 
 ```bash
 ./scripts/eval/run-swebench.sh 0:50     # seeded slice (~2-3 h)
