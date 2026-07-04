@@ -45,3 +45,6 @@ benchmarks/results/*.json
 
 # Build artifacts
 remote-build.log
+
+# FAP eval run artifacts
+results/
