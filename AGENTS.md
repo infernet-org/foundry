@@ -1,5 +1,10 @@
 # AI Agent Integration Guide
 
+> **AI agents working ON this repository** (Codex, Claude Code, Cursor, ...):
+> the repo meta-index — what foundry is, repo map, commands, and hard-won rules —
+> is in [CLAUDE.md](CLAUDE.md). Installable skills: `npx skills add infernet-org/foundry`.
+> This file is about pointing agent frameworks AT the served API.
+
 This guide covers how to connect AI agents, coding assistants, and multi-agent frameworks to a Foundry inference server. Foundry exposes a standard OpenAI-compatible API at `http://localhost:8080/v1`.
 
 ## Table of Contents

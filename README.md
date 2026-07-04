@@ -16,6 +16,7 @@ Foundry serves NVIDIA's [ModelOpt NVFP4 checkpoint](https://huggingface.co/nvidi
 - [Multi-Agent Inference](#multi-agent-inference)
 - [Running](#running)
 - [Monitoring](#monitoring)
+- [AI Agents & Skills](#ai-agents--skills)
 - [Host Kernel Tuning](#host-kernel-tuning)
 - [Project Structure](#project-structure)
 - [License](#license)
@@ -247,6 +248,26 @@ All dashboards are auto-provisioned on first start -- no manual import needed.
 └─────────────────┘
 ```
 
+## AI Agents & Skills
+
+Foundry is agent-friendly in both directions:
+
+- **Agents using the API**: any OpenAI-compatible framework — see [AGENTS.md](AGENTS.md).
+- **Agents working on this repo**: [CLAUDE.md](CLAUDE.md) is the meta-index
+  (repo map, commands, operational rules). Read by Claude Code natively;
+  Codex and others are routed there from AGENTS.md.
+- **Skills** (Claude Code, Codex, and other skills-compatible agents):
+
+```bash
+npx skills add infernet-org/foundry
+```
+
+| Skill | What it does |
+|-------|--------------|
+| `foundry-serve` | Start/stop/health-check the inference server and monitoring stack |
+| `foundry-benchmark` | Throughput + MTP-acceptance measurement against a running server |
+| `foundry-assess` | Run the FAP quality gates (fidelity, coding, agentic SWE) |
+
 ## Host Kernel Tuning
 
 For maximum performance, run the host tuning script once on the Docker host:
@@ -305,10 +326,12 @@ foundry/
 │           └── default.sh           # 32K ctx, 32 GB minimum
 ├── scripts/
 │   ├── benchmark.py                 # Generation speed, prompt processing, throughput
-│   ├── optimize_5090.py             # Multi-config A/B testing harness
 │   ├── eval/                        # FAP gate runners (evalplus, aider, swebench)
 │   ├── download-model.sh            # Download model weights outside Docker
 │   └── host-setup.sh               # Linux kernel tuning for inference
+├── skills/                          # Agent skills (npx skills add infernet-org/foundry)
+├── CLAUDE.md                        # Agent meta-index (repo map, commands, rules)
+├── EVALUATION.md                    # FAP certification record
 ├── monitoring/
 │   ├── prometheus/prometheus.yml    # Scrape config (vLLM, GPU, node, cAdvisor, eBPF)
 │   └── grafana/
