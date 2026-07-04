@@ -112,11 +112,37 @@ DeepSWE / Qwen / GLM numbers. The minimal bash-only scaffold measures the
 `instance_cost * 1e6` = exact output tokens per task -> **tokens per solved
 issue**.
 
-*(Not yet run for this deployment -- harness is prepped; run the seeded slice below to fill this gate.)*
+Result (RTX 5090, MTP x4 + tool calling, thinking on, seeded 49/50 slice --
+one instance dropped to an infra hang; 2026-07-04):
+
+| Cut | Value |
+|-----|-------|
+| **Resolved (headline)** | **24/49 = 49.0%** |
+| Of patches that applied | 24/36 = 66.7% (fix-quality) |
+| Malformed submissions | 10/49 (wrote the fix, botched the git-diff submit protocol) |
+| Gave up | 3 |
+| Output tokens / solved issue | ~12,100 |
+
+Read: fix-quality is mid-level (2 of 3 applied patches pass, incl. correct
+root-cause fixes in Django ORM internals); the weakness is agentic-protocol
+reliability -- 20% of runs failed on submission format, not correctness, so
+that is the highest-leverage thing to fix. Caveats: n=49 (wide CI ~+/-14%),
+Django-heavy draw (15 of 24 resolved), and contamination-suspect on a
+mid-2026 model vs 2023-era issues -- SWE-rebench is the clean cross-check.
+Even discounted, ~49% is at/above DeepSWE-Preview (42.2%, a 32B that needed
+RL) from an untrained off-the-shelf checkpoint on one consumer GPU.
 
 ```bash
-./scripts/eval/run-swebench.sh 0:50     # seeded slice (~2-3 h)
-./scripts/eval/run-swebench.sh 0:500    # full Verified (overnight)
+# 1. rollout (thinking on for agentic quality)
+FOUNDRY_EXTRA_ARGS='' ./scripts/eval/run-swebench.sh 0:50    # seeded slice
+./scripts/eval/run-swebench.sh 0:500                          # full Verified (overnight)
+
+# 2. grade (rootless docker needs DOCKER_HOST set; native docker does not)
+DOCKER_HOST="unix://$XDG_RUNTIME_DIR/docker.sock" \
+  "$FAP_EVAL_HOME/venv/bin/python" -m swebench.harness.run_evaluation \
+  --dataset_name princeton-nlp/SWE-bench_Verified \
+  --predictions_path results/swebench-0-50/preds.json \
+  --max_workers 4 --run_id foundry-gate4b --cache_level env
 ```
 
 ---
