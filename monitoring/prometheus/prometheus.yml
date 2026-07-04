@@ -7,8 +7,8 @@ global:
   evaluation_interval: 15s
 
 scrape_configs:
-  # llama-server inference metrics (/metrics endpoint, enabled via --metrics)
-  - job_name: llama-server
+  # vLLM inference metrics (Prometheus format on the API port, always on)
+  - job_name: vllm
     static_configs:
       - targets: ["inference:8080"]
     metrics_path: /metrics

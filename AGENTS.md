@@ -46,7 +46,7 @@ No API key is required by default. If your client demands one, any non-empty str
 // opencode.json (project root or ~/.config/opencode/opencode.json)
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "foundry/Qwen3.5-9B-UD-Q4_K_XL.gguf",
+  "model": "foundry/qwen3.6-35b-a3b-nvfp4",
   "provider": {
     "foundry": {
       "npm": "@ai-sdk/openai-compatible",
@@ -56,10 +56,10 @@ No API key is required by default. If your client demands one, any non-empty str
         "apiKey": "sk-local"
       },
       "models": {
-        "Qwen3.5-9B-UD-Q4_K_XL.gguf": {
+        "qwen3.6-35b-a3b-nvfp4": {
           "name": "Qwen 3.5 9B",
           "limit": {
-            "context": 262144,
+            "context": 229376,
             "output": 32768
           }
         }
@@ -81,7 +81,7 @@ API Key:  sk-local
 Model:    qwen3.5-9b
 ```
 
-Cursor uses streaming by default. Foundry supports SSE streaming natively. With multiple parallel slots, you can run Cursor's background indexing and active chat simultaneously without blocking.
+Cursor uses streaming by default. Foundry supports SSE streaming natively. vLLM's continuous batching runs Cursor's background indexing and active chat simultaneously without blocking.
 
 ### Continue (VS Code / JetBrains)
 
@@ -128,7 +128,7 @@ Model ID: qwen3.5-9b
 
 ## Multi-Agent Frameworks
 
-Foundry's parallel inference slots make it particularly suited for multi-agent workflows where multiple agents share a single model. Each slot processes requests independently with minimal throughput degradation.
+vLLM's continuous batching makes Foundry particularly suited for multi-agent workflows where multiple agents share one model: up to 8 concurrent sequences at ~1,228 tok/s aggregate on RTX 5090.
 
 ### CrewAI
 
@@ -175,7 +175,7 @@ crew = Crew(
 result = crew.kickoff(inputs={"topic": "GPU inference optimization"})
 ```
 
-With 3 parallel slots, CrewAI can run 3 agents simultaneously at ~168 tok/s each (Qwen3-Coder MoE) or ~33 tok/s each with Hermes Dense (4 slots).
+CrewAI can run 4 agents simultaneously at ~307 tok/s each (RTX 5090, MTP x4 speculative decoding).
 
 ### AutoGen
 
@@ -250,7 +250,7 @@ docker run -d -p 3000:8080 \
   ghcr.io/open-webui/open-webui:main
 ```
 
-Open WebUI supports multi-user chat with conversation history. Each user session uses one of Foundry's inference slots.
+Open WebUI supports multi-user chat with conversation history. Concurrent user sessions are batched by vLLM automatically.
 
 ### text-generation-webui (oobabooga)
 
@@ -328,14 +328,7 @@ console.log(response.choices[0].message.content);
 
 | Use case | Recommended model | Why |
 |----------|-------------------|-----|
-| **Coding agents** (OpenCode, Cursor, Aider) | Qwen3-Coder-30B-A3B | Fastest decode (275 tok/s), purpose-built for code, tool calling support |
-| **Multi-agent orchestration** (CrewAI, AutoGen) | Qwen3-Coder-30B-A3B | 3-concurrent at 497 tok/s aggregate, best MoE batching efficiency |
-| **General reasoning + long context** | Qwen3.5-9B | 262K context per slot (1M total), thinking mode, best benchmark quality across GPQA/HMMT/TAU2 |
-| **Reasoning-heavy tasks** | Qwen3.5-9B | Thinking mode with `reasoning_content` field, 81.7 GPQA Diamond, 83.2 HMMT |
-| **Tool use / function calling** | Qwen3-Coder-30B-A3B or Hermes-4.3-36B | Both have strong tool calling; Coder is 4x faster, Hermes more reliable on complex schemas |
-| **Roleplay / creative writing** | Hermes-4.3-36B | NousResearch fine-tune optimized for personality and narrative |
-| **Long document Q&A** | Qwen3.5-9B | 262K context per slot, recurrent layers handle long sequences efficiently |
-| **8 GB VRAM GPUs** | Qwen3.5-9B | Smallest disk footprint (5.66 GB), runs on 8 GB cards with reduced context |
+Foundry ships one model: **qwen3.6-35b-a3b-nvfp4** (MoE, ~3B active). It covers coding agents, multi-agent orchestration, tool calling, and long-context work (224K) in a single deployment; thinking mode (`reasoning_content`) is available per request for reasoning-heavy tasks.
 
 ## Performance Considerations
 
@@ -345,32 +338,21 @@ Single-stream decode latency (time to generate one token):
 
 | Model | Latency per token | Tokens per second |
 |-------|-------------------|-------------------|
-| Qwen3-Coder-30B-A3B | ~3.6 ms | ~275 tok/s |
-| Qwen3.5-9B | ~5.7 ms | ~177 tok/s |
-| Hermes-4.3-36B | ~15.5 ms | ~64 tok/s |
+| qwen3.6-35b-a3b-nvfp4 | ~2.6 ms | ~384 tok/s (MTP x4) |
 
-For interactive coding agents, Qwen3-Coder delivers the fastest typing experience. Qwen3.5-9B trades some speed for full 262K context and superior reasoning quality. For batch/background tasks where latency is less critical, Hermes' roleplay and creative strengths may be worth the tradeoff.
+At ~384 tok/s single-stream the typing experience is instant for interactive agents; concurrent agent fleets aggregate to ~1,228 tok/s.
 
 ### Prompt processing
 
-Prompt processing (prefill) runs at ~1,688 tok/s for Qwen3.5-9B on RTX 5090. A 10K token prompt takes ~5.9 seconds to process. Keep system prompts concise to minimize time-to-first-token.
+Prefill processes a ~1K-token prompt in ~0.11 s on RTX 5090. Keep system prompts concise to minimize time-to-first-token.
 
 ### Concurrent agent scaling
 
-Qwen3-Coder-30B-A3B (fastest, 3 slots):
-```
-1 agent:  275 tok/s  (100% per-agent speed)
-2 agents: 405 tok/s  (~204 tok/s each, 74% per-agent)
-3 agents: 497 tok/s  (~168 tok/s each, 61% per-agent)
-```
+qwen3.6-35b-a3b-nvfp4 (RTX 5090, MTP x4):
+- 1 agent:  ~384 tok/s
+- 4 agents: ~1,228 tok/s aggregate (~307 tok/s each)
 
-Qwen3.5-9B (4 slots, dense):
-```
-1 agent:  177 tok/s  (100% per-agent speed)
-4 agents: 423 tok/s  (~106 tok/s each, 60% per-agent)
-```
-
-If your workflow has more concurrent agents than slots, requests queue until a slot is free. Consider multi-GPU routing (below) for higher concurrency.
+vLLM batches up to 8 concurrent sequences (`--max-num-seqs`); beyond that, requests queue. Consider multi-GPU routing (below) for higher concurrency.
 
 ### Context window usage
 
@@ -378,9 +360,7 @@ VRAM scales with context usage. The default RTX 5090 profiles are tuned for maxi
 
 | Model | Default context | VRAM at idle | VRAM at full context |
 |-------|----------------|--------------|---------------------|
-| Qwen3.5-9B | 1M (262K/slot) | 5.7 GB | ~29.5 GB |
-| Qwen3-Coder-30B-A3B | 192K | 25.0 GB | ~28.9 GB |
-| Hermes-4.3-36B | 32K | 24.5 GB | ~27.8 GB |
+| qwen3.6-35b-a3b-nvfp4 | 224K | 22 GB | ~29.0 GB |
 
 To reduce VRAM usage, lower the context window:
 
@@ -434,7 +414,7 @@ curl http://localhost:8080/v1/chat/completions \
 
 ## Tool Calling / Function Calling
 
-Hermes-4.3-36B is specifically trained for tool calling with `<tool_call>` XML format. Qwen also supports tool calling via its chat template.
+Qwen3.6 supports tool calling via its chat template (`--jinja`-style templating is built into vLLM serving).
 
 ```python
 response = client.chat.completions.create(
@@ -467,7 +447,7 @@ All models support Jinja chat templates for tool calling. The entrypoint enables
 
 ## Thinking / Reasoning Mode
 
-Qwen3.5-9B supports a thinking mode where it shows its reasoning process in `<think>` tags before answering.
+qwen3.6-35b-a3b-nvfp4 supports a thinking mode: reasoning is returned separately in the `reasoning_content` field (qwen3 reasoning parser).
 
 The server returns thinking content in the `reasoning_content` field:
 
@@ -483,8 +463,6 @@ if hasattr(msg, "reasoning_content") and msg.reasoning_content:
     print(f"Thinking: {msg.reasoning_content}")
 print(f"Answer: {msg.content}")
 ```
-
-Hermes-4.3-36B also supports thinking mode via the `<think>` tag convention. Enable it by including a system prompt that triggers deep reasoning (see the model's chat template).
 
 ## Streaming
 
@@ -506,7 +484,7 @@ The host tuning script (`sudo ./scripts/host-setup.sh`) configures BBR congestio
 
 ## Multi-GPU Agent Routing
 
-For workloads requiring more concurrent agents than slots, run multiple Foundry instances and load-balance across them.
+For workloads requiring more concurrency than one GPU provides, run multiple Foundry instances and load-balance across them.
 
 ### Simple round-robin with nginx
 
@@ -534,15 +512,15 @@ For deterministic routing (each agent always hits the same GPU):
 ```python
 import os
 
-# Route based on agent ID (adjust slots_per_gpu to match your model's --parallel setting)
-slots_per_gpu = 3  # Qwen3-Coder default; use 4 for Qwen3.5/Hermes
+# Route based on agent ID (match --max-num-seqs, default 8)
+seqs_per_gpu = 8
 gpu_endpoints = [
     "http://localhost:8080/v1",  # GPU 0
     "http://localhost:8081/v1",  # GPU 1
 ]
 
 def get_client(agent_id: int) -> OpenAI:
-    endpoint = gpu_endpoints[agent_id // slots_per_gpu]
+    endpoint = gpu_endpoints[agent_id // seqs_per_gpu]
     return OpenAI(base_url=endpoint, api_key="sk-local")
 ```
 
@@ -564,7 +542,7 @@ If you see `no devices with dedicated memory found` in the logs, the CUDA backen
 
 1. Check if all layers are on GPU: look for `offloaded N/N layers to GPU` in container logs
 2. Check VRAM: `nvidia-smi` -- if VRAM is full, reduce context with `FOUNDRY_CTX_LENGTH`
-3. Check if all slots are occupied: `curl http://localhost:8080/metrics | grep slots`
+3. Check queue depth: `curl http://localhost:8080/metrics | grep vllm:num_requests`
 
 ### OpenCode: "text part msg_... not found"
 
@@ -587,4 +565,4 @@ docker run --gpus all -p 8080:8080 \
   ghcr.io/infernet-org/foundry/qwen3.5-9b:latest
 ```
 
-For GPUs with less than 16 GB VRAM, use Qwen3.5-9B (only 5.66 GB model weight). For 16+ GB, Qwen3-Coder-30B-A3B's MoE expert offloading can spill inactive experts to CPU.
+This model requires an NVFP4-capable GPU (Blackwell RTX 50xx or Hopper) with 32 GB+ VRAM; there is no smaller variant in this repo.

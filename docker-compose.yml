@@ -1,11 +1,8 @@
 # ==============================================================================
 # Foundry: Docker Compose
 # ==============================================================================
-# Quick start (uses default Qwen3.5 MoE model):
+# Quick start (Qwen3.6-35B-A3B-NVFP4 via vLLM -- Blackwell/Hopper GPUs only):
 #   docker compose up
-#
-# Choose a different model:
-#   FOUNDRY_MODEL=hermes-4.3-36b docker compose up
 #
 # With monitoring (Prometheus + Grafana + GPU metrics):
 #   docker compose --profile monitoring up
@@ -35,12 +32,12 @@ services:
     command: ["--config.file=/examples/biolatency.yaml"]
 
   # ============================================================================
-  # Prometheus (Scrapes metrics)
+  # Inference (vLLM model server)
   # ============================================================================
   inference:
-    image: ghcr.io/infernet-org/foundry/${FOUNDRY_MODEL:-qwen3.5-9b}:latest
+    image: ghcr.io/infernet-org/foundry/${FOUNDRY_MODEL:-qwen3.6-35b-a3b-nvfp4}:latest
     build:
-      context: models/${FOUNDRY_MODEL:-qwen3.5-9b}/
+      context: models/${FOUNDRY_MODEL:-qwen3.6-35b-a3b-nvfp4}/
     ports:
       - "${FOUNDRY_PORT:-8080}:8080"
     volumes:
@@ -50,6 +47,7 @@ services:
         required: false
     environment:
       - FOUNDRY_PROFILE=${FOUNDRY_PROFILE:-auto}
+      - FOUNDRY_CTX_LENGTH=${FOUNDRY_CTX_LENGTH:-}
       - FOUNDRY_PORT=8080
       - HF_TOKEN=${HF_TOKEN:-}
     deploy:
@@ -59,7 +57,7 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-    shm_size: '2gb'
+    shm_size: '8gb'
     # NOTE: Network tuning (BBR, busy_poll) and memory locking are applied at the
     # host level by scripts/host-setup.sh. Run it once before deploying:
     #   sudo ./scripts/host-setup.sh
@@ -71,6 +69,7 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      start_period: 300s   # weight loading + CUDA graph capture takes 2-4 min
       interval: 10s
       timeout: 5s
       retries: 5
@@ -89,7 +88,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
-      - "9090:9090"
+      - "${PROM_PORT:-9091}:9090"  # host port defaults to 9091 to avoid the common 9090 collision
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus

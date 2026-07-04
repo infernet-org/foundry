@@ -22,7 +22,7 @@ curl http://localhost:8080/health
 ### Metrics
 
 ```bash
-curl -s http://localhost:8080/metrics | grep -E "llama_server_(slots|ctx|model)"
+curl -s http://localhost:8080/metrics | grep -E "vllm:(num_requests|kv_cache|generation_tokens)"
 ```
 
 ### GPU Status
@@ -64,21 +64,15 @@ nvidia-smi --query-gpu=name,memory.used,memory.total,temperature.gpu,utilization
 
 **Verify:** `docker compose logs inference | grep "offloaded"` should show `offloaded N/N layers to GPU`.
 
-### "CUDA error: no kernel image is available for execution on the device"
+### "CUDA error: no kernel image is available" / NVFP4 capability errors
 
-**Symptom:** Server crashes immediately after loading model.
+**Cause:** the GPU is older than the NVFP4 checkpoint supports. This image requires
+compute capability >= 9.0: Hopper (sm_90) or Blackwell (sm_100/sm_120, RTX 50xx).
+The entrypoint fails fast with a clear message on older GPUs; if you see a raw
+kernel-image error instead, you bypassed the entrypoint.
 
-**Cause:** The compiled CUDA kernels don't match your GPU architecture. Foundry images are built for sm_89 (Ada/RTX 40xx) and sm_120a (Blackwell/RTX 50xx).
-
-**Fix:** If you have an older GPU (e.g. Ampere/RTX 30xx), rebuild the image with your architecture:
-```bash
-# In the Dockerfile, change CMAKE_CUDA_ARCHITECTURES:
--DCMAKE_CUDA_ARCHITECTURES="86;89;120a"   # Add 86 for Ampere
-```
-
-**Verify:** `docker compose logs inference | grep "CUDA"` should show successful backend loading.
-
----
+**Fix:** run on a supported GPU, or serve a GGUF build of this model with
+llama.cpp on older hardware (outside the scope of this repo).
 
 ## Out of Memory
 
@@ -86,7 +80,7 @@ nvidia-smi --query-gpu=name,memory.used,memory.total,temperature.gpu,utilization
 
 **Symptom:** Container disappears. `docker inspect` shows OOMKilled.
 
-**Cause:** VRAM or system RAM exhausted. The RTX 5090 profile uses 1M total context (262K/slot x 4), which requires ~29.5 GB VRAM for Qwen3.5-9B.
+**Cause:** VRAM or system RAM exhausted. The RTX 5090 profile runs 224K context with MTP speculative decoding at `--gpu-memory-utilization 0.90` (~29 GB VRAM).
 
 **Diagnosis:**
 ```bash
@@ -99,16 +93,12 @@ docker inspect --format='{{.State.OOMKilled}}' foundry-inference-1
    ```bash
    FOUNDRY_CTX_LENGTH=65536 docker compose up
    ```
-2. Reduce parallel slots:
-   ```bash
-   FOUNDRY_EXTRA_ARGS="--parallel 1" docker compose up
-   ```
-3. Use more aggressive KV cache quantization (add to `FOUNDRY_EXTRA_ARGS`):
-   ```bash
-   FOUNDRY_EXTRA_ARGS="-ctk q4_0 -ctv q4_0" docker compose up
-   ```
+2. Reduce context or concurrency:
 
-**Verify:** `nvidia-smi` should show VRAM usage within your GPU's capacity.
+   ```bash
+   FOUNDRY_CTX_LENGTH=131072 make run       # smaller KV allocation
+   # or edit PROFILE_MAX_NUM_SEQS / PROFILE_GPU_MEM_UTIL in the profile
+   ```
 
 ### "CUDA out of memory" in logs
 
@@ -125,26 +115,23 @@ FOUNDRY_CTX_LENGTH=16384 docker compose up
 
 ## Startup & Model Loading
 
-### "Download failed: xxx.gguf not found after download"
+### Download failed / model dir incomplete
 
-**Symptom:** First startup fails during model download.
+**Symptom:** startup logs `Download failed` or vLLM crashes loading safetensors.
 
-**Cause:** Hugging Face API rate limiting, network issues, or missing auth token for gated models.
+**Cause:** the ~22 GB snapshot download was interrupted. The entrypoint writes
+`.foundry_download_complete` inside the model dir only after a full download and
+resumes automatically on the next start; a crash mid-load usually means the
+resume also failed (disk space, network, HF rate limits).
 
 **Fix:**
-1. Set a Hugging Face token (free, read-only access):
-   ```bash
-   echo "HF_TOKEN=hf_your_token_here" > .env
-   docker compose up
-   ```
-2. Or download manually and mount:
-   ```bash
-   pip install huggingface-hub
-   huggingface-cli download unsloth/Qwen3.5-9B-GGUF Qwen3.5-9B-UD-Q4_K_XL.gguf --local-dir ~/.cache/foundry
-   docker compose up
-   ```
+1. Check disk space: `df -h ~/.cache/foundry` (need ~25 GB free).
+2. Restart the container -- `snapshot_download` resumes incrementally.
+3. Or pre-download outside docker: `./scripts/download-model.sh`
+4. Private/gated repo? Pass `HF_TOKEN` via `.env`.
 
-**Verify:** `ls -lh ~/.cache/foundry/*.gguf` should show the model file.
+**Verify:** `du -sh ~/.cache/foundry/Qwen3.6-35B-A3B-NVFP4` shows ~22 GB and the
+`.foundry_download_complete` marker exists.
 
 ### "Permission denied: Cannot access /models"
 
@@ -206,30 +193,27 @@ chmod 755 ~/.cache/foundry
 
 **Verify:** `curl http://localhost:8080/health` returns `{"status":"ok"}`.
 
-### HTTP 503 / All slots busy
+### Requests queueing / slow under concurrency
 
-**Symptom:** API returns 503 when all parallel slots are occupied.
+**Symptom:** latency grows with many concurrent requests.
 
-**Cause:** More concurrent requests than available slots. Default: 4 slots (RTX 5090) or 2 slots (default profile).
+**Cause:** more concurrent requests than `--max-num-seqs` (default 8 in the
+RTX 5090 profile); vLLM queues the excess rather than erroring.
 
 **Fix:**
-1. Check slot usage:
-   ```bash
-   curl -s http://localhost:8080/metrics | grep "llama_server_requests"
-   ```
-2. Increase parallel slots (requires more VRAM):
-   ```bash
-   FOUNDRY_EXTRA_ARGS="--parallel 8" docker compose up
-   ```
-3. Or queue requests client-side with retry logic.
+1. Check queue depth:
 
----
+   ```bash
+   curl -s http://localhost:8080/metrics | grep -E "vllm:num_requests_(running|waiting)"
+   ```
+
+2. Raise `PROFILE_MAX_NUM_SEQS` (costs KV/VRAM headroom) or add a second GPU/instance.
 
 ## Performance
 
 ### Throughput below documented benchmarks
 
-**Symptom:** Decode speed is 50%+ lower than documented (e.g. 90 tok/s instead of 177 tok/s for Qwen3.5-9B).
+**Symptom:** Decode speed is 50%+ lower than documented (e.g. 190 tok/s instead of ~384 tok/s single-stream).
 
 **Cause:** Host kernel not tuned. The documented benchmarks assume `host-setup.sh` has been run.
 
@@ -272,7 +256,7 @@ nvidia-smi -q -d PERFORMANCE | grep -A5 "Clocks Throttle Reasons"
 ```
 
 **Fix:**
-1. Reduce concurrent load (fewer parallel slots = less heat):
+1. Reduce concurrent load (fewer concurrent sequences = less heat):
    ```bash
    FOUNDRY_EXTRA_ARGS="--parallel 2" docker compose up
    ```
@@ -321,7 +305,7 @@ docker compose --profile monitoring up -d
 
 **Symptom:** OpenCode crashes immediately with `text part msg_XXXX not found` when using `@ai-sdk/openai`.
 
-**Cause:** The `@ai-sdk/openai` package includes `extractReasoningMiddleware` that crashes when it encounters `<think>` tokens in the response content. Qwen3.5 models always generate `<think>` blocks even with thinking disabled ([vercel/ai #12054](https://github.com/vercel/ai/issues/12054)).
+**Cause:** The `@ai-sdk/openai` package includes `extractReasoningMiddleware` that crashes when it encounters `<think>` tokens in the response content. Thinking models emit `<think>` blocks; Foundry serves with `--reasoning-parser qwen3`, which moves reasoning into the separate `reasoning_content` field so message content stays clean ([vercel/ai #12054](https://github.com/vercel/ai/issues/12054)).
 
 **Fix:** Use `@ai-sdk/openai-compatible` instead of `@ai-sdk/openai` in your `opencode.json`:
 ```json
@@ -338,7 +322,7 @@ docker compose --profile monitoring up -d
 }
 ```
 
-Also ensure the server uses `--reasoning-format none` (already set in Foundry's Qwen3.5-9B profiles).
+Foundry already separates reasoning server-side via `--reasoning-parser qwen3`.
 
 ### OpenCode: Tool calls appear as raw XML
 
@@ -346,19 +330,10 @@ Also ensure the server uses `--reasoning-format none` (already set in Foundry's 
 
 **Cause:** The server is returning `reasoning_content` in the API response, which confuses the AI SDK's tool call parser.
 
-**Fix:** Ensure `--reasoning-format none` is in the server's `PROFILE_EXTRA_ARGS`. This is the default in Foundry's Qwen3.5-9B profiles. If you're using a custom profile or `FOUNDRY_EXTRA_ARGS`, add it:
-```bash
-FOUNDRY_EXTRA_ARGS="--reasoning-format none" docker compose up
-```
-
-**Verify:**
-```bash
-curl -s http://localhost:8080/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{"model":"Qwen3.5-9B-UD-Q4_K_XL.gguf","messages":[{"role":"user","content":"hello"}],"max_tokens":64}' \
-  | python3 -c "import sys,json; d=json.load(sys.stdin); print('reasoning_content' in d['choices'][0]['message'])"
-# Should print: False
-```
+**Fix:** the `qwen3` reasoning parser (set in the entrypoint) returns reasoning in
+`reasoning_content`, separate from `content`. To disable thinking entirely, send
+`"chat_template_kwargs": {"enable_thinking": false}` in the request, or serve with
+`FOUNDRY_EXTRA_ARGS='--default-chat-template-kwargs {"enable_thinking":false}'`.
 
 ### Client requires API key
 
