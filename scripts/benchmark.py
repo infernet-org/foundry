@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Foundry Benchmark Script
-Measures token generation speed, time-to-first-token, and throughput for Qwen3.5-35B-A3B
+Measures token generation speed, time-to-first-token, and throughput for Qwen3.6-35B-A3B-NVFP4
 """
 
 import argparse
@@ -18,7 +18,7 @@ except ImportError:
     subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "requests"])
     import requests
 
-DEFAULT_MODEL = "qwen3.5-35b-a3b"
+DEFAULT_MODEL = "qwen3.6-35b-a3b-nvfp4"
 
 
 def benchmark_generation_speed(
