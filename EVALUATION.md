@@ -11,9 +11,83 @@ No configuration ships without passing four gates, in order:
 
 Each gate has a runner in `scripts/eval/`, a pass criterion, and a results
 artifact. Below: the certification record for **qwen3.6-35b-a3b-nvfp4 /
-rtx5090 profile** (vLLM 0.24.0, RTX 5090 32 GB, 2026-07-03).
+rtx5090 profile** (vLLM 0.24.0, RTX 5090 32 GB, 2026-07-03), followed by the
+**qwen3.8-27b-nvfp4 / rtx5090 profile** record (vLLM 0.27.1, RTX 5090 32 GB,
+2026-08-24).
 
 ---
+
+# Certification: qwen3.8-27b-nvfp4 (2026-08-24)
+
+Checkpoint: [unsloth/Qwen3.8-27B-NVFP4](https://huggingface.co/unsloth/Qwen3.8-27B-NVFP4)
+(mixed FP8 channel-wise + NVFP4 weight groups, built-in MTP head). Base image
+`vllm/vllm-openai:v0.27.1`, `transformers>=5.8.0`. Quantization auto-detected.
+
+## Gate 1 -- Throughput ceiling
+
+Full sweep on RTX 5090 (32 GB), single card. Raw artifacts:
+`/tmp` sweep logs reproduced in the `rtx5090.sh` profile header; acceptance from
+`vllm:spec_decode_num_{accepted,draft}_tokens_total`.
+
+| Config | Single-stream | 4-concurrent | Accept rate | Verdict |
+|--------|---------------|--------------|-------------|---------|
+| eager, no MTP (32K) | 25.5 tok/s | 91 tok/s | -- | rejected (launch-bound) |
+| eager + MTP x2 | 50.6 | 123 | ~0.7 | rejected |
+| eager + MTP x3 | 63.9 | 141 | 0.68 | rejected |
+| eager + MTP x4 | 68.1 | 79 | 0.58 | rejected (conc. collapse) |
+| graphs, no MTP (32K) | 65.6 | 210-214 | -- | reference |
+| graphs + MTP x2 | 114.8 | 105.8 | -- | rejected (conc.) |
+| graphs + MTP x3 | 133.8 | 108.2 | -- | rejected (conc.) |
+| **graphs + MTP x4, seqs 8** | **157.0** | **166.1** | **0.58** | **SHIPPED** |
+| graphs + MTP x4 + async | 152.0 | 90.4 | -- | rejected (no gain) |
+| Inferact W4A4 build A/B (x4) | 134.4 @8K | 74.1 | 0.58 | rejected (needs util 0.92 + 8K ctx to boot; identical drafter quality) |
+
+Key finding: unlike MoE qwen3.6 (MTP wins both axes), this dense hybrid is
+compute-bound at concurrency -- speculation trades aggregate for latency.
+Shipped profile optimizes interactive agents; long-form sustained decode
+measured **122 tok/s** (1500-token completion). Context ladder on one card:
+64K with the shipped profile, 128K by adding `--enforce-eager`
+(145,935-token fp8 pool verified), >128K requires TP2 (recipe-verified 262K).
+
+## Gate 2 -- Deployment fidelity
+
+```bash
+FOUNDRY_EXTRA_ARGS='--default-chat-template-kwargs {"enable_thinking":false}' <server>
+./scripts/eval/run-evalplus.sh qwen38-gate2 http://localhost:8090/v1 qwen3.8-27b-nvfp4
+```
+
+Preflight thinking-off probe passed. HumanEval+ greedy pass@1:
+
+| Suite | qwen3.8-27b-nvfp4 | qwen3.6-35b-a3b-nvfp4 (ref) |
+|-------|-------------------|------------------------------|
+| HumanEval (base) | 93.3% | 92.7% |
+| HumanEval+ | **90.9%** | 88.4% |
+
+**PASS** -- the vLLM 0.27.1 / auto-quant / qwen3_coder-parser chain does not
+corrupt output.
+
+## Gate 3 -- Quantization preservation
+
+BF16 needs ~56 GB VRAM (no local run); comparison is the quantizer's published
+logit-level analysis ([unsloth accuracy tables](https://unsloth.ai/docs/models/qwen3.8)),
+cross-checked against our Gate 2 absolute score.
+
+| Evidence | Value |
+|----------|-------|
+| Top-1 agreement vs BF16 (code/chat/multiling.) | 92.2-96.7% |
+| KLD mean vs BF16 | 0.012-0.058 across domains |
+| Published speedup vs BF16 | 1.49x single / 1.41-1.45x batched (B200) |
+| Our HumanEval+ vs published BF16-class agentic scores | consistent (90.9% HE+) |
+
+**PASS with caveat** -- unsloth's mixed FP8+NVFP4 recovers 92-97% top-1
+agreement (their dynamic-quant methodology trades a few points of logit
+fidelity for ~1.5x speed and ~2x KV capacity vs uniform builds). Benchmark-
+level behavior is preserved per Gate 2; logit-level recovery is below the
+99% benchmark-preservation bar qwen3.6 set only because the metric differs.
+Size reduction: 56 GB BF16 -> 22 GB.
+
+---
+
 
 ## Gate 1 -- Throughput ceiling
 

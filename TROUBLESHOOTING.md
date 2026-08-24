@@ -130,7 +130,8 @@ resume also failed (disk space, network, HF rate limits).
 3. Or pre-download outside docker: `./scripts/download-model.sh`
 4. Private/gated repo? Pass `HF_TOKEN` via `.env`.
 
-**Verify:** `du -sh ~/.cache/foundry/Qwen3.6-35B-A3B-NVFP4` shows ~22 GB and the
+**Verify:** `du -sh ~/.cache/foundry/<Model-Dir>` (e.g. `Qwen3.8-27B-NVFP4` or
+`Qwen3.6-35B-A3B-NVFP4`) shows ~22 GB and the
 `.foundry_download_complete` marker exists.
 
 ### "Permission denied: Cannot access /models"
