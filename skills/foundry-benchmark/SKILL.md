@@ -12,8 +12,9 @@ python3 scripts/benchmark.py --url http://localhost:8080 --mode all --concurrent
 ```
 Modes: `generation` (single-stream), `prompt` (prefill), `throughput` (concurrent), `all`.
 
-## Reference numbers (RTX 5090, rtx5090 profile, MTP x4)
-- Single-stream: ~384 tok/s | 4-concurrent: ~1,228 tok/s | VRAM ~29 GB
+## Reference numbers (RTX 5090, rtx5090 profiles)
+- qwen3.8-27b-nvfp4 (graphs + MTP x4): single ~157 tok/s | 4-concurrent ~166 | VRAM ~27.5 GB
+- qwen3.6-35b-a3b-nvfp4 (MTP x4): single ~384 tok/s | 4-concurrent ~1,228 tok/s | VRAM ~29 GB
 - First request after boot pays one-time warmup — discard it.
 
 ## MTP acceptance (workload-dependent; code > prose)
@@ -25,12 +26,12 @@ curl -s localhost:8080/metrics | grep -E "spec_decode_num_(accepted|draft)_token
 If results are >30% below reference: check concurrent load, GPU clocks/temperature,
 and that the rtx5090 profile actually loaded (container logs: "Loading profile").
 When comparing configs, change ONE flag at a time and rerun; record rejects too —
-see the sweep-record format in models/qwen3.6-35b-a3b-nvfp4/profiles/rtx5090.sh and EVALUATION.md Gate 1.
+see the sweep-record format in each model's `profiles/rtx5090.sh` header and EVALUATION.md Gate 1.
 
 ## Re-sweep after a profile change (the tuning loop)
 
-Profiles are **baked into the image** — editing `models/qwen3.6-35b-a3b-nvfp4/profiles/*.sh`
-does nothing until you rebuild:
+Profiles are **baked into the image** — editing `models/<model>/profiles/*.sh`
+does nothing until you rebuild (`make build MODEL=<model>`):
 
 ```bash
 # 1. edit ONE flag in the profile        (rules: CLAUDE.md "Rules that matter")

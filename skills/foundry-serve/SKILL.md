@@ -1,6 +1,6 @@
 ---
 name: foundry-serve
-description: Start, stop, and health-check the foundry vLLM inference server (Qwen3.6-35B-A3B-NVFP4). Use when asked to serve the model, restart inference, check why the server is down, or bring up the monitoring stack.
+description: Start, stop, and health-check the foundry vLLM inference server (qwen3.8-27b-nvfp4 or qwen3.6-35b-a3b-nvfp4). Use when asked to serve a model, restart inference, check why the server is down, or bring up the monitoring stack.
 ---
 
 # Serving foundry
@@ -17,7 +17,7 @@ Do not declare failure before 5 minutes — poll `curl -sf localhost:8080/health
 ## Verify
 ```bash
 curl -s localhost:8080/v1/chat/completions -H 'Content-Type: application/json' \
-  -d '{"model":"qwen3.6-35b-a3b-nvfp4","messages":[{"role":"user","content":"hi"}],"max_tokens":32}'
+  -d '{"model":"qwen3.8-27b-nvfp4","messages":[{"role":"user","content":"hi"}],"max_tokens":32}'
 ```
 
 ## Diagnose

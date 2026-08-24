@@ -1,10 +1,10 @@
 # Foundry
 
-Tuned Docker image for running Qwen3.6-35B-A3B-NVFP4 on consumer Blackwell GPUs. One command, maximum tok/s.
+Tuned Docker images for running NVFP4-quantized LLMs on consumer Blackwell GPUs. One command, maximum tok/s.
 
-Foundry serves NVIDIA's [ModelOpt NVFP4 checkpoint](https://huggingface.co/nvidia/Qwen3.6-35B-A3B-NVFP4) with [vLLM](https://github.com/vllm-project/vllm), bundles per-GPU hardware profiles, and auto-detects your GPU at startup. No manual tuning required.
+Foundry serves [NVFP4 checkpoints](https://huggingface.co/unsloth/Qwen3.8-27B-NVFP4) with [vLLM](https://github.com/vllm-project/vllm), bundles per-GPU hardware profiles, and auto-detects your GPU at startup. No manual tuning required.
 
-**Requires an NVFP4-capable GPU**: Blackwell (RTX 50xx, sm_120) or Hopper (sm_90), with 32 GB+ VRAM.
+**Requires an NVFP4-capable GPU**: Blackwell (RTX 50xx, sm_120) or Hopper (sm_90), with 28 GB+ VRAM depending on the model.
 
 ## Table of Contents
 
@@ -24,12 +24,18 @@ Foundry serves NVIDIA's [ModelOpt NVFP4 checkpoint](https://huggingface.co/nvidi
 ## Quick Start
 
 ```bash
+# Qwen3.8-27B
+docker run --gpus all --shm-size 8g -p 8080:8080 \
+  -v ~/.cache/foundry:/models \
+  ghcr.io/infernet-org/foundry/qwen3.8-27b-nvfp4:latest
+
+# Qwen3.6-35B-A3B
 docker run --gpus all --shm-size 8g -p 8080:8080 \
   -v ~/.cache/foundry:/models \
   ghcr.io/infernet-org/foundry/qwen3.6-35b-a3b-nvfp4:latest
 ```
 
-The first run downloads the model (~22 GB). Subsequent starts take 2-4 minutes (weight loading + CUDA graph capture).
+The first run downloads the model (~22 GB). Subsequent starts take 2-4 minutes (weight loading + graph capture or eager warmup).
 
 Then use it like any OpenAI-compatible API:
 
@@ -37,7 +43,7 @@ Then use it like any OpenAI-compatible API:
 curl http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "qwen3.6-35b-a3b-nvfp4",
+    "model": "qwen3.8-27b-nvfp4",
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
 ```
@@ -48,16 +54,28 @@ Works with any OpenAI-compatible client: Cursor, Continue, OpenCode, Open WebUI,
 
 Every shipped configuration passes four gates before it earns a profile:
 
-| Gate | Question | This deployment |
+| Gate | Question | qwen3.6-35b-a3b-nvfp4 |
 |------|----------|-----------------|
 | 1. Throughput ceiling | Fastest correct config? | **384 tok/s single / 1,228 tok/s 4-concurrent** |
 | 2. Deployment fidelity | Does our stack corrupt output? | HumanEval+ **88.4%** greedy -- PASS |
 | 3. Quant preservation | Did NVFP4 hurt the model? | **>=99.2%** of BF16 on all suites |
 | 4. Measured intelligence | Real SWE capability? | Aider polyglot **50.2%** pass@2 (thinking off) |
 
+qwen3.8-27b-nvfp4 gate results: see [EVALUATION.md](EVALUATION.md).
+
 Methodology, full sweep record, and runners: **[EVALUATION.md](EVALUATION.md)** + `scripts/eval/`.
 
 ## Models
+
+### Qwen3.8-27B-NVFP4 (dense hybrid)
+
+Dense 27B on the Qwen3.8 hybrid-attention backbone: only 16 of 64 layers run full attention (the other 48 are linear attention with constant recurrent state), plus a built-in MTP draft head and a BF16 vision tower. Served from the [Unsloth dynamic NVFP4 checkpoint](https://huggingface.co/unsloth/Qwen3.8-27B-NVFP4) (mixed FP8 channel-wise + 4-bit groups).
+
+- Quantization auto-detected by vLLM (native CUTLASS NVFP4 kernel on sm_120)
+- FP8 KV cache (only full-attention layers carry KV), 262K native context
+- Disk: ~22 GB | Min VRAM: ~28 GB single-card | MTP speculative decoding built in
+- **Single 32 GB cards require `--enforce-eager`** (CUDA graph capture OOMs next to the weights); multi-GPU TP2 fits graphs again
+- Thinking mode via `reasoning_content`, `reasoning_effort` support (xhigh/medium/low)
 
 ### Qwen3.6-35B-A3B-NVFP4 (MoE)
 
@@ -66,16 +84,15 @@ Hybrid Gated DeltaNet + MoE, Qwen3.6 generation. 35B total parameters, ~3B activ
 - 40 layers, hybrid recurrent + full attention, MoE experts
 - Quantization: NVFP4 language model + BF16 vision tower + FP8 KV cache, via [NVIDIA ModelOpt](https://huggingface.co/nvidia/Qwen3.6-35B-A3B-NVFP4)
 - Disk: ~22 GB | Min VRAM: 32 GB | Max context: 262K native
-- **Requires Hopper (sm_90) or Blackwell (RTX 50xx) GPU** -- NVFP4 does not run on Ada or older
 - Thinking mode via `reasoning_content` (qwen3 reasoning parser)
 - Vision input supported by the checkpoint but disabled by default to save VRAM (`PROFILE_MULTIMODAL=true` to enable)
 
-| GPU | VRAM | Context | Decode | 4-concurrent | VRAM used |
-|-----|------|---------|--------|--------------|-----------|
-| RTX 5090 | 32 GB | 224K | ~384 tok/s | ~1,228 tok/s | 29.0 GB |
-| Other NVFP4-capable (32 GB+) | 32+ GB | 32K | varies | varies | varies |
+| Model | GPU | Context | Decode (single) | Notes |
+|-------|-----|---------|-----------------|-------|
+| qwen3.6-35b-a3b-nvfp4 | RTX 5090 | 224K | ~384 tok/s (MTP x4) | 1,228 tok/s @ 4-concurrent |
+| qwen3.8-27b-nvfp4 | RTX 5090 | see profile | see EVALUATION.md | eager mode on 32 GB |
 
-The RTX 5090 numbers use **MTP x4 self-speculative decoding** (the checkpoint ships its own draft head) + async scheduling -- 1.9x single-stream and 2.3x concurrent over the plain configuration. To trade speed for the full 262K context, edit `PROFILE_EXTRA_ARGS` in the profile (drop `--speculative-config`), raise `PROFILE_CTX_LENGTH`, and `make build` (profiles are baked into the image) -- `FOUNDRY_EXTRA_ARGS` appends flags and cannot remove them.
+The qwen3.6 RTX 5090 numbers use **MTP x4 self-speculative decoding** (the checkpoint ships its own draft head) + async scheduling -- 1.9x single-stream and 2.3x concurrent over the plain configuration. To trade speed for the full 262K context, edit `PROFILE_EXTRA_ARGS` in the profile (drop `--speculative-config`), raise `PROFILE_CTX_LENGTH`, and `make build` (profiles are baked into the image) -- `FOUNDRY_EXTRA_ARGS` appends flags and cannot remove them.
 
 Sweep record and per-config numbers: [EVALUATION.md](EVALUATION.md).
 
@@ -105,7 +122,10 @@ Available profiles: `rtx5090`, `default`
 
 ### NVFP4 on consumer Blackwell
 
-The checkpoint stores the language model in NVFP4 (4-bit floating point with per-block FP8 scales) and the KV cache in FP8. On sm_120 vLLM auto-selects the MARLIN weight-only kernel (robust, no warmup). The native-FP4 `flashinfer_b12x` backend is ~4% faster at decode but experimental -- opt in via `PROFILE_MOE_BACKEND=flashinfer_b12x` in the profile or `FOUNDRY_EXTRA_ARGS="--moe-backend flashinfer_b12x"`.
+The checkpoints store the language model in NVFP4 (4-bit floating point) with FP8 KV cache. On sm_120 the kernel path differs per checkpoint format:
+
+- **qwen3.6 (NVIDIA ModelOpt)**: vLLM auto-selects the MARLIN weight-only kernel (robust, no warmup). The native-FP4 `flashinfer_b12x` backend is ~4% faster at decode but experimental -- opt in via `PROFILE_MOE_BACKEND=flashinfer_b12x` in the profile or `FOUNDRY_EXTRA_ARGS="--moe-backend flashinfer_b12x"`.
+- **qwen3.8 (Unsloth mixed FP8+NVFP4)**: vLLM selects a native CUTLASS/FlashInfer NVFP4 GEMM kernel on sm_120; quantization is auto-detected, do not force `--quantization modelopt`. On a single 32 GB card CUDA graph capture cannot fit next to the ~24.6 GiB of weights, so the rtx5090 profile ships `--enforce-eager`; with TP2 across two cards graphs fit again.
 
 ## Configuration
 
@@ -117,6 +137,7 @@ All settings can be overridden via environment variables:
 | `FOUNDRY_PORT` | `8080` | Server port |
 | `FOUNDRY_CTX_LENGTH` | Profile default | Context window size (`--max-model-len`) |
 | `FOUNDRY_EXTRA_ARGS` | (empty) | Additional `vllm serve` arguments (highest priority) |
+| `FOUNDRY_QUANTIZATION` | (empty, qwen3.8 only) | Force a quant loader instead of auto-detect (debugging) |
 | `HF_TOKEN` | (empty) | Hugging Face token for authenticated downloads |
 
 ## Multi-Agent Inference
@@ -318,6 +339,12 @@ This reduced p99 latency jitter from ~5.8 tok/s spread to ~2.2 tok/s spread in o
 ```
 foundry/
 ├── models/
+│   ├── qwen3.8-27b-nvfp4/
+│   │   ├── Dockerfile               # vLLM 0.27.1, transformers>=5.8 (NVFP4 -- Blackwell/Hopper only)
+│   │   ├── entrypoint.sh            # GPU detect, profile load, snapshot download, vllm serve
+│   │   └── profiles/
+│   │       ├── rtx5090.sh           # 32K ctx (64K max), graphs + MTP x4, ~157/166 tok/s
+│   │       └── default.sh           # conservative baseline for unknown GPUs
 │   └── qwen3.6-35b-a3b-nvfp4/
 │       ├── Dockerfile               # vLLM backend (NVFP4 -- Blackwell/Hopper only)
 │       ├── entrypoint.sh            # GPU detect, profile load, snapshot download, vllm serve

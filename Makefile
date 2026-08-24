@@ -3,9 +3,17 @@
 # ==============================================================================
 
 REGISTRY ?= ghcr.io/infernet-org/foundry
-# The only supported model (vLLM + NVFP4, Blackwell/Hopper GPUs)
+# Default model; override with MODEL=qwen3.8-27b-nvfp4 (vLLM + NVFP4,
+# Blackwell/Hopper GPUs)
 MODEL ?= qwen3.6-35b-a3b-nvfp4
 MODEL_TAG ?= $(REGISTRY)/$(MODEL)
+
+# Per-model weight sources: HF repo id + cache dir name (snapshot dir under
+# /models). Keep in sync with each model's Dockerfile ENV.
+qwen3.6-35b-a3b-nvfp4_REPO = nvidia/Qwen3.6-35B-A3B-NVFP4
+qwen3.6-35b-a3b-nvfp4_DIR = Qwen3.6-35B-A3B-NVFP4
+qwen3.8-27b-nvfp4_REPO = unsloth/Qwen3.8-27B-NVFP4
+qwen3.8-27b-nvfp4_DIR = Qwen3.8-27B-NVFP4
 PORT ?= 8080
 MODELS_DIR ?= $(HOME)/.cache/foundry
 
@@ -20,8 +28,9 @@ DOCKER_RUN_FLAGS = --gpus all \
 .PHONY: help build run run-profile test benchmark monitoring down push clean clean-models download
 
 help: ## Show this help
-	@echo "Model: qwen3.6-35b-a3b-nvfp4 (vLLM + NVFP4, requires Blackwell or Hopper GPU)"
-	@echo "Usage: make run"
+	@echo "Models: qwen3.6-35b-a3b-nvfp4 (default), qwen3.8-27b-nvfp4"
+	@echo "        (vLLM + NVFP4, requires Blackwell or Hopper GPU)"
+	@echo "Usage: make run [MODEL=qwen3.8-27b-nvfp4]"
 	@echo ""
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -93,8 +102,8 @@ test: ## Smoke test: start container, wait for health, send one request
 
 # --- Download ----------------------------------------------------------------
 
-download: ## Download the model weights (~22 GB snapshot)
-	./scripts/download-model.sh
+download: ## Download model weights for MODEL (default qwen3.6)
+	./scripts/download-model.sh --repo $($(MODEL)_REPO) --model-dir $($(MODEL)_DIR)
 
 # --- Benchmark ---------------------------------------------------------------
 
@@ -111,5 +120,5 @@ push: ## Push model image to GHCR
 clean: ## Remove local images
 	-docker rmi $(MODEL_TAG):latest
 
-clean-models: ## Remove downloaded models (incl. legacy GGUFs from pre-vLLM foundry)
-	rm -rf "$(MODELS_DIR)"/Qwen3.6-35B-A3B-NVFP4 "$(MODELS_DIR)"/*.gguf
+clean-models: ## Remove downloaded weights for MODEL (incl. legacy GGUFs)
+	rm -rf "$(MODELS_DIR)"/$($(MODEL)_DIR) "$(MODELS_DIR)"/*.gguf
