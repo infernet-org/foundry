@@ -44,7 +44,20 @@
 #   this profile (graphs+MTP x4)    -- up to 64K via FOUNDRY_CTX_LENGTH
 #   eager + MTP (add --enforce-eager)-- 128K boots (145,935-token fp8 pool),
 #                                      decode drops to ~50-68 tok/s
-#   >128K                            -- requires TP2 across two cards
+#   eager, no MTP, util 0.92        -- 192K boots (248,427-token fp8 pool),
+#                                      ~26 tok/s; use default profile +
+#                                      FOUNDRY_EXTRA_ARGS overrides
+#   >192K                            -- requires TP2 across two cards
+#
+# Drafter alternatives (boot-tested 2026-08-24 on vLLM 0.27.1):
+#   DFlash2 (z-lab/incoai)          -- REJECTED: DFlash2DraftModel not in
+#                                      stable vLLM registry (needs SGLang or
+#                                      unmerged PR #52816)
+#   DSpark (RadixArk)               -- REJECTED: arch resolves but crashes
+#                                      ('Qwen3Config' has no hc_mult --
+#                                      checkpoint newer than engine support);
+#                                      published acceptance was below built-in
+#                                      MTP anyway (4.36 vs 5.02 GSM8K len)
 # ==============================================================================
 
 PROFILE_CTX_LENGTH=32768        # 32K: fits alongside graphs+MTP; raise w/o MTP

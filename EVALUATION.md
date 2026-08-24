@@ -47,7 +47,14 @@ compute-bound at concurrency -- speculation trades aggregate for latency.
 Shipped profile optimizes interactive agents; long-form sustained decode
 measured **122 tok/s** (1500-token completion). Context ladder on one card:
 64K with the shipped profile, 128K by adding `--enforce-eager`
-(145,935-token fp8 pool verified), >128K requires TP2 (recipe-verified 262K).
+(145,935-token fp8 pool verified), 192K eager + no-MTP + util 0.92
+(248,427-token pool, ~26 tok/s); beyond that requires TP2 (recipe-verified 262K).
+
+Drafter alternatives boot-tested on stable vLLM 0.27.1 and rejected:
+`DFlash2DraftModel` is absent from the engine registry (SGLang or unmerged
+vLLM PR #52816 required), and RadixArk DSpark resolves but crashes on a
+checkpoint/engine config mismatch (`hc_mult`) with published acceptance below
+the built-in MTP anyway (4.36 vs 5.02 GSM8K acceptance-length).
 
 ## Gate 2 -- Deployment fidelity
 
